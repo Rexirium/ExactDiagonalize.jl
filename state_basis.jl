@@ -66,3 +66,13 @@ TotalState(statestr::String; type::DataType=ComplexF64) =
 
 TotalState(strvec::Vector{:Symbol}; type::DataType=ComplexF64) = 
     TotalState(length(strvec), translate(strvec); type=type)
+
+State(basis::NumBasis, statevec::AbstractVector) = NumState(basis, statevec)
+State(basis::TotalBasis, statevec::AbstractVector) = TotalState(basis, statevec)
+
+function findindex(basis::NumBasis, bits::Int)
+    count_ones(bits) == basis.num || return -1
+    return searchsortedfirst(basis.bitsvec, bits)
+end
+
+findindex(basis::TotalBasis, bits::Int) = bits + 1

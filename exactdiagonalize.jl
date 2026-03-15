@@ -60,52 +60,45 @@ function apply(op::Tuple, bits::Int, T::DataType)
     return newbits, element
 end
 
-function makeHamiltonian(ops::AbstractOpSum, basis::NumBasis)
+function makeHamiltonian(ops::AbstractOpSum, basis::AbstractBasis)
     dim = length(basis.bitsvec)
     hmat = zeros(ops.type, dim, dim)
     for (j, bits) in enumerate(basis.bitsvec)
         for op in ops.opvec
             newbits, element = apply(op, bits, ops.type)
-            if count_ones(newbits) == basis.num && !iszero(element)
-                i = searchsortedfirst(basis.bitsvec, newbits)
-                hmat[i, j] += element
-            end
+            i = findindex(basis, newbits)
+            (i == -1 || element == 0) && continue
+            hmat[i, j] += element
         end
     end
     return Hermitian(hmat)
 end
 
-function makeHamiltonian(ops::AbstractOpSum, basis::TotalBasis)
-    dim = length(basis.bitsvec)
-    hmat = spzeros(ops.type, dim , dim)
-    for bits in basis.bitsvec
-        for op in ops.opvec
-            newbits, element = apply(op, bits, ops.type)
-            hmat[newbits + 1, bits + 1] += element
-        end
-    end
-    return Hermitian(hmat)
+function timeEvolve(ops::AbstractOpSum, init::AbstractState, tf::Real)
+    hmat = makeHamiltonian(ops, init.basis)
+    eigenergy, U = eigen(hmat)
+    phases = cos.(tf * eigenergy) .- im * sin.(tf * energy)
+    expEt = Diagonal(phases)
+    final = U * expEt * U' * (init.statevec)
+    return State(init.basis, final)
 end
 
-function makeHamiltonian(ops::AbstractOpSum, lsize::Int, qns::Symbol = :N)
-    hmats = Vector{Hermitian}()
-    for num in 0:lsize
-        if qns == :N
-            basis = NumBasis(lsize, num)
-        else
-            error("wait for later development")
-        end
-        hmat = makeHamiltonian(ops, basis)
-        push!(hmats, hmat)
-    end
-    return hmats
-end
+function timeEvolve(ops::AbstractOpSum, init::AbstractState, ts::Vector{<:Real})
+    hmat = makeHamiltonian(ops, init.basis)
+    eigenergy, U = eigen(hmat)
+    phases = cos.(eigenergy) .- im * sin.(eigenergy)
+    expEt = Diagonal(phases)
+    final = Vector{ComplexF64}(undef, length(init.statevec))
 
-function timeEvolve(ops::AbstractOpSum, init::AbstractState)
+    for t in ts
+        phases .= cos.(t * eigenergy) .- im * sin.(t * eigenergy)
+        expEt[diagind(expEt)] .= phases
+        final .= U * expEt * U' * (init.statevec)
+    end
 end
 
 let 
-    L, N = 10, 5
+    L, N = 6, 3
 
     os = Tuple[]
     for j in 1:L
@@ -120,5 +113,4 @@ let
     basis = NumBasis(L, N)
     @time makeHamiltonian(ops, basis)
     
-    NumState("1001011010")
 end
