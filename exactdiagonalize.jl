@@ -60,14 +60,50 @@ function apply(op::Tuple, bits::Int, T::DataType)
     return newbits, element
 end
 
-function makeHamiltonian(ops::AbstractOpSum, basis::AbstractBasis)
+function apply(op::Tuple, psi::AbstractState)
+    opmat = op2mat(op, psi.basis)
+    vector = opmat * psi.vector
+    return State(psi.basis, vector)
+end
+
+function apply!(op::Tuple, psi::AbstractState)
+    opmat = op2mat(op, psi.basis)
+    lmul!(opmat, psi.vector)
+end
+
+function op2mat(op::Tuple, basis::AbstractBasis)
     dim = length(basis.bitsvec)
-    hmat = zeros(ops.type, dim, dim)
+    T = typeof(op[1])
+    opmat = spzeros(T, dim, dim)
+    for (j, bits) in enumerate(basis.bitsvec)
+        newbits, element = apply(op, bits, T)
+        i = findindex(basis, newbits)
+        (i <= 0 || iszero(element)) && continue
+        opmat[i, j] += element
+    end
+    return Hermitian(opmat)
+end
+
+function expect(op::Tuple, psi::AbstractState)
+    opmat = op2mat(op, psi.basis)
+    v = psi.vector
+    return real(v' * opmat * v)
+end
+
+function inner(x::S, op::Tuple, y::S) where S <: AbstractState
+    length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
+    opmat = op2mat(op, y.basis)
+    return x.vector' * opmat * y.vector
+end
+
+function makeHamiltonian(ops::AbstractOpSum, basis::AbstractBasis; sparsed::Bool=false)
+    dim = length(basis.bitsvec)
+    hmat = sparsed ? spzeros(ops.type, dim, dim) : zeros(ops.type, dim, dim) 
     for (j, bits) in enumerate(basis.bitsvec)
         for op in ops.opvec
             newbits, element = apply(op, bits, ops.type)
             i = findindex(basis, newbits)
-            (i == -1 || element == 0) && continue
+            (i <= 0 || iszero(element)) && continue
             hmat[i, j] += element
         end
     end
@@ -79,21 +115,20 @@ function timeEvolve(ops::AbstractOpSum, init::AbstractState, tf::Real)
     eigenergy, U = eigen(hmat)
     phases = cos.(tf * eigenergy) .- im * sin.(tf * energy)
     expEt = Diagonal(phases)
-    final = U * expEt * U' * (init.statevec)
+    final = U * expEt * U' * (init.vector)
     return State(init.basis, final)
 end
 
 function timeEvolve(ops::AbstractOpSum, init::AbstractState, ts::Vector{<:Real})
     hmat = makeHamiltonian(ops, init.basis)
     eigenergy, U = eigen(hmat)
-    phases = cos.(eigenergy) .- im * sin.(eigenergy)
-    expEt = Diagonal(phases)
-    final = Vector{ComplexF64}(undef, length(init.statevec))
+    expEt = Diagonal{ComplexF64}(similar(eigenergy))
+    psi = Vector{ComplexF64}(similar(init.vector))
 
     for t in ts
         phases .= cos.(t * eigenergy) .- im * sin.(t * eigenergy)
         expEt[diagind(expEt)] .= phases
-        final .= U * expEt * U' * (init.statevec)
+        psi .= U * expEt * U' * (init.vector)
     end
 end
 
@@ -110,7 +145,12 @@ let
     # push!(os, (1.0, :X, L))
     ops = SpinOpSum(Float64, os)
 
-    basis = NumBasis(L, N)
-    @time makeHamiltonian(ops, basis)
+    op = (1.0, :Z, 2)
     
+    basis = NumBasis(L, N)
+    vs = randn(length(basis.bitsvec))
+
+    psi = State(basis, vs)
+    normalize!(psi)
+    norm(psi.vector)
 end
