@@ -71,17 +71,17 @@ function apply!(op::Tuple, psi::AbstractState)
     lmul!(opmat, psi.vector)
 end
 
-function op2mat(op::Tuple, basis::AbstractBasis)
+function op2mat(op::Tuple, basis::AbstractBasis; hermitian::Bool=true, sparsed::Bool=true)
     dim = length(basis.bitsvec)
     T = typeof(op[1])
-    opmat = spzeros(T, dim, dim)
+    opmat = sparsed ? spzeros(T, dim, dim) : zeros(T, dim, dim)
     for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = apply(op, bits, T)
         i = findindex(basis, newbits)
         (i <= 0 || iszero(element)) && continue
         opmat[i, j] += element
     end
-    return Hermitian(opmat)
+    return hermitian ? Hermitian(opmat) : opmat
 end
 
 function expected(op::Tuple, psi::AbstractState)
@@ -117,8 +117,8 @@ mutable struct OperatorObserver{T <: Number} <: AbstractObserver
     opmat::Matrix{T}
     data::Vector{Float64}
 
-    OperatorObserver(op::Tuple, basis::AbstractBasis) = new{typeof(op[1])}(
-        op2mat(op, basis), Float64[]
+    OperatorObserver(op::Tuple, basis::AbstractBasis; hermitian=true, sparsed=true) = new{typeof(op[1])}(
+        op2mat(op, basis; hermitian=hermitian, sparsed=sparsed), Float64[]
     )
 end
 

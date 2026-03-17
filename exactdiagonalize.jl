@@ -1,3 +1,4 @@
+using CairoMakie
 include("operators.jl")
 
 function spectrum(ops::AbstractOpSum, basis::AbstractBasis)
@@ -20,7 +21,7 @@ end
 function timeEvolve(ops::AbstractOpSum, init::AbstractState, tf::Real)
     hmat = makeHamiltonian(ops, init.basis)
     eigenergy, U = eigen(hmat)
-    phases = cos.(tf * eigenergy) .- im * sin.(tf * energy)
+    phases = complex.(cos.(tf * eigenergy), - sin.(tf * eigenergy))
     expEt = Diagonal(phases)
     final = U * expEt * U' * (init.vector)
     return State(init.basis, final)
@@ -28,15 +29,16 @@ end
 
 function timeEvolve(ops::AbstractOpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver)
     hmat = makeHamiltonian(ops, init.basis)
+    dim = length(init.vector)
     eigenergy, U = eigen(hmat)
 
-    phases = Vector{ComplexF64}(similar(eigenergy))
-    expEt = Diagonal{ComplexF64}(similar(eigenergy))
-    psi = Vector{ComplexF64}(similar(init.vector))
+    phases = Vector{ComplexF64}(undef, dim)
+    expEt = Diagonal{ComplexF64}(undef, dim)
+    psi = Vector{ComplexF64}(undef, dim)
 
     for t in ts
-        phases .= cos.(t * eigenergy) .- im * sin.(t * eigenergy)
-        expEt[diagind(expEt)] .= phases
+        phases .= complex.(cos.(t * eigenergy), - sin.(t * eigenergy))
+        expEt.diag .= phases
         psi .= U * expEt * U' * (init.vector)
         record!(obs, psi)
     end
@@ -45,8 +47,8 @@ end
 
 let 
     L, N = 10, 1
-    basis = NumBasis(L, N)
-    init = NumState(L, 1 << (L - N))
+    
+    init = NumState("0000000001")
 
     os = Tuple[]
     for j in 1:L
@@ -58,9 +60,12 @@ let
     # push!(os, (1.0, :X, L))
     ops = SpinOpSum(Float64, os)
 
-    obs = OperatorObserver((1.0, :Z, L), init.basis)
-
-    ts = 0.0:0.1:10.0
+    obs = OperatorObserver((1.0, :Z, 1), init.basis)
+    
+    
+    ts = 0.0:0.01:10.0
     timeEvolve(ops, init, ts, obs)
-    obs.data
+    
+    fig, ax = lines(ts, obs.data)
+    
 end
