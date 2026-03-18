@@ -7,6 +7,7 @@ using CairoMakie
 let 
     L, N = 10, 1
     Δ = 0.5
+
     init = NumState("1000000000")
     
     os = Tuple[]
@@ -19,12 +20,21 @@ let
     # push!(os, (1.0, :X, L))
     ops = SpinOpSum{Float64}(os)
 
+    os2 = [(1.0, :Z, j) for j in 1:L]
+    ops2 = SpinOpSum{Float64}(os2)
+
     obs = OperatorObserver((1.0, :Z, L), init.basis)
     
-    #makeHamiltonian(ops, init.basis)
+    @show makeHamiltonian(ops2, init.basis)
     
     ts = 0.0:0.02:10.0
-    timeEvolve_rk4(ops, init, ts, obs)
-    fig, ax = lines(ts, obs.data)
+    timeEvolve_exact(ops, init, ts, obs)
+
+    fig = Figure()
+    ax = Axis(fig[1,1],
+
+    )
+    lines!(ax, ts, obs.data)
+    fig
     
 end

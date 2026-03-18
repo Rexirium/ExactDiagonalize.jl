@@ -4,6 +4,8 @@ using SparseArrays
 include("utils.jl")
 include("state_basis.jl")
 
+global SpMatrix = SparseMatrixCSC
+
 abstract type AbstractOpSum end
 
 mutable struct SpinOpSum{T <: Number} <: AbstractOpSum
@@ -31,7 +33,7 @@ function act(opstr::Symbol, loc::Int, bits::Int, T::DataType)
     end
 end
 
-function act(opstr::String, loc::Tuple{Int, Int}, bits::Int, T::DataType)
+function act(opstr::Symbol, loc::Tuple{Int, Int}, bits::Int, T::DataType)
     if opstr == :CX
         c, t = loc
         bitc = readbit(bits, c)
@@ -113,15 +115,29 @@ end
 abstract type AbstractObserver end
 
 mutable struct OperatorObserver{T <: Number} <: AbstractObserver
-    opmat::Matrix{T}
+    opmat::SpMatrix{T}
     data::Vector{Float64}
 
-    OperatorObserver(op::Tuple, basis::AbstractBasis; sparsed=true) = new{typeof(op[1])}(
-        op2mat(op, basis; sparsed=sparsed), Float64[]
+    OperatorObserver(op::Tuple, basis::AbstractBasis; sparsed::Bool=true) = new{typeof(op[1])}(
+        op2mat(op, basis; sparsed=sparsed), Vector{Float64}()
     )
 end
 
 function record!(obs::OperatorObserver, psi::AbstractVector)
     val = real(psi' * obs.opmat * psi)
+    push!(obs.data, val)
+end
+
+mutable struct OpSumObserver{T <: Number} <: AbstractObserver
+    opsmat::SpMatrix{T}
+    data::Vector{Float64}
+
+    OpSumObserver(ops::SpinOpSum{T}, basis::AbstractBasis; sparsed::Bool=true) where T <: Number = new{T}(
+        makeHamiltonian(ops, basis; sparsed=sparsed), Vector{Float64}()
+    )
+end
+
+function record!(obs::OpSumObserver, psi::AbstractVector)
+    val = real(psi' * obs.opsmat * psi)
     push!(obs.data, val)
 end

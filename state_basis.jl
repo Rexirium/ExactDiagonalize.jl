@@ -69,7 +69,7 @@ function TotalState(lsize::Int, bits::Int; type::DataType=ComplexF64)
     basis = TotalBasis(lsize)
     vector = zeros(type, 1 << lsize)
     vector[bits + 1] = one(type)
-    NumState{type}(basis, vector)
+    TotalState{type}(basis, vector)
 end
 
 TotalState(statestr::String; type::DataType=ComplexF64) = 
@@ -78,8 +78,8 @@ TotalState(statestr::String; type::DataType=ComplexF64) =
 TotalState(strvec::Vector{:Symbol}; type::DataType=ComplexF64) = 
     TotalState(length(strvec), translate(strvec); type=type)
 
-State(basis::NumBasis, vector::Vector{T}) where {T <: Number} = NumState{T}(basis, vector)
-State(basis::TotalBasis, vector::Vector{T}) where {T <: Number} = TotalState{T}(basis, vector)
+State(basis::NumBasis, vector::Vector{T}) where T <: Number = NumState{T}(basis, vector)
+State(basis::TotalBasis, vector::Vector{T}) where T <: Number = TotalState{T}(basis, vector)
 
 #============Convertion between two basis=============#
 function TotalState(state::NumState{T}, lsize::Int) where T <: Number
