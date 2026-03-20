@@ -23,7 +23,7 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
     psi = ComplexF64.(init.vector)
 
     for (i, t) in enumerate(ts)
-        record!(obs, psi)
+        record!(obs, psi, i)
         if i == length(ts)
             break
         end

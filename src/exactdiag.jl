@@ -48,12 +48,12 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
     phases = Vector{ComplexF64}(undef, dim)
     psi_trans = Vector{ComplexF64}(undef, dim)
 
-    record!(obs, psi)
-    for t in ts[2:end]
+    record!(obs, psi, 1)
+    for (i, t) in enumerate(ts[2:end])
         phases .= complex.(cos.(t * eigs), - sin.(t * eigs))
         psi_trans .= phases .* init_trans
         mul!(psi, U, psi_trans)
-        record!(obs, psi)
+        record!(obs, psi, i)
     end
     return State(init.basis, psi)
 end

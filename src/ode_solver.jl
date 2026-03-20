@@ -17,7 +17,7 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
     tmp = Vector{ComplexF64}(undef, dim)
 
     for (i, t) in enumerate(ts)
-        record!(obs, psi)  # record state at current time
+        record!(obs, psi, i)  # record state at current time
         if i == length(ts)
             break
         end

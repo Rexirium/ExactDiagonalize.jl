@@ -6,15 +6,15 @@ A Julia package for exact diagonalization of quantum many-body systems. This pac
 
 ExactDiagonalize enables computational studies of small to moderate-sized quantum systems through exact numerical methods. It supports:
 
-- **Hamiltonian Construction**: Build quantum Hamiltonians from individual spin operators and composite operator sums
+- **Hamiltonian Construction**: Build quantum Hamiltonians from sum of operator products, i.e. almost **handwriting form**
 - **Spectrum Computation**: Diagonalize Hamiltonians to obtain eigenvalues and eigenvectors
-- **Time Evolution**: Simulate quantum dynamics using the RK4 integration scheme
-- **Observable Tracking**: Record time-dependent expectation values during evolution
+- **Time Evolution**: Simulate quantum dynamics using exact diagonalized results, RK4 based ODE solver or sparse matrix multiplication method
+- **Observable Tracking**: Record **highly customizable** time-dependent expectation values during evolution
 - **Sparse Matrix Support**: Efficient sparse matrix representations of quantum operators
 
 ## Installation
 
-Add ExactDiagonalize to your Julia project (maybe later):
+Add ExactDiagonalize to your Julia project (maybe later, for I have not registered the package yet):
 
 ```julia
 using Pkg
@@ -77,25 +77,29 @@ timeEvolve(opsum, init, ts, obs)
 
 ### State Representation
 
-- **`FullState`**: State defined on full dimension of Hilbert space
+- **`FullState`**: Quantum state defined on full dimension of Hilbert space
 - **`NumState`**: Particle number or total spin conserved state (use it when system has $U(1)$ symmetry)
-- **`FullBasis`**: Basis defined on full dimension of Hilbert space
-- **`NumBasis`**: Basis generated from fixed particle number occupation or total spin
+- **`FullBasis`**: Basis defined on full dimension of Hilbert space (avoid using it when possible)
+- **`NumBasis`**: Basis constrained with fixed particle number occupation or total spin
 
 ### Operators
 
 - **`SpinOp`**: Individual spin operators ($X$, $Y$, $Z$, $\sigma^+$, $\sigma^-$, $iY$, $CX$, $CZ$)
-- **`Operator`**: Multi-site operator products
+- **`FermionOp`**: Wait for later development
+- **`Operator`**: Multi-site operator products, such as $aX_i X_{i+1}$ , $b CX_{1,2} Z_3$
 - **`OpSum`**: Linear combinations of operators (Hamiltonian)
 
 ### Functions
 
 - **`spectrum(opsum, basis; retvecs)`**: Compute eigenvalues (and eigenvectors if retvecs is `true`)
 - **`timeEvolve(opsum, init_state, basis, tf)`**: Exact diagonalization time evolution to the final time `tf`
-- **`timeEvolve(opsum, init_state, times, ts, observer, alg)`**: Time evolution performed by chosen algorithm `alg`
-  - `alg`: can take:
-- **`record!(observer, state)`**: Record observable at each time loop.
+- **`timeEvolve(opsum, init_state, times, ts, observer, alg)`**: Time evolution performed by chosen algorithm `alg`. For now,  `alg`: can take:
+  - `exact()` for exact diagonalization results ,
+  -  `rk4()` for ODE solver using 4th order Runge-Kutta algorithm, 
+  - `spmat()` for sparse matrix multiplication
+- **`record!(observer, state, step)`**: Record observable at time step `step`
 - **`makeHamiltonian(opsum, basis; sparsed)`**: Convert OpSum to sparse matrix Hamiltonian if `sparsed = true`
+  - **Caution!**: For now, the exact diagonalization algorithm only take Hamiltonian as a dense matrix for `eigen` in `LinearAlgebra.jl` do NOT support sparse matrix from `SparseArrays.jl`
 
 ### System Configuration
 
@@ -111,21 +115,21 @@ See the `examples/` directory for complete working examples:
 ## Key Features
 
 - **Efficient Sparse Representation**: Leverages sparse matrix formats for memory efficiency
-- **Flexible Operator Syntax**: Intuitive specification of quantum Hamiltonians
-- **Observable Recording**: Built-in framework for tracking time-dependent measurements
+- **Flexible Operator Syntax**: Intuitive specification of Hamiltonians. Just Build it from what you see on papers
+- **Observable Recording**: Built-in framework for tracking time-dependent measurements. Highly **flexible, customizable and expandable**
 - **Hardware Acceleration**: Optional MKL support for accelerated linear algebra
 
 ## Project Structure
 
 ```
 src/
-├── ExactDiagonalize.jl   # Main module
-├── exactdiag.jl          # Diagonalization core functions
-├── operators.jl          # Operator and Hamiltonian construction
-├── ode_solver.jl         # Time evolution (RK4)
-├── sparsemat.jl          # Sparse matrix utilities
-├── state_basis.jl        # State and basis definitions
-└── utils.jl              # Helper utilities
+  ├── ExactDiagonalize.jl   # Main module
+  ├── exactdiag.jl          # Diagonalization core functions
+  ├── operators.jl          # Operator and Hamiltonian construction
+  ├── ode_solver.jl         # Time evolution (RK4)
+  ├── sparsemat.jl          # Sparse matrix utilities
+  ├── state_basis.jl        # State and basis definitions
+  └── utils.jl              # Helper utilities
 ```
 
 ## Contributing

@@ -170,7 +170,7 @@ mutable struct OperatorObserver{T <: Number} <: AbstractObserver
     )
 end
 
-function record!(obs::OperatorObserver, psi::AbstractVector)
+function record!(obs::OperatorObserver, psi::AbstractVector, step::Int)
     val = real(psi' * obs.opmat * psi)
     push!(obs.data, val)
 end
@@ -184,7 +184,7 @@ mutable struct OpSumObserver{T <: Number} <: AbstractObserver
     )
 end
 
-function record!(obs::OpSumObserver, psi::AbstractVector)
+function record!(obs::OpSumObserver, psi::AbstractVector, step::Int)
     val = real(psi' * obs.opsmat * psi)
     push!(obs.data, val)
 end
