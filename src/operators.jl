@@ -1,10 +1,6 @@
-using MKL, LinearAlgebra
-using SparseArrays
-
 include("utils.jl")
 include("state_basis.jl")
 
-const SpMatrix = SparseMatrixCSC
 const _systype = Ref{Val}(Val(:Spin))
 
 function set_systype(val::Symbol)

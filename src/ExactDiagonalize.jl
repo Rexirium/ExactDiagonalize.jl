@@ -1,5 +1,9 @@
 module ExactDiagonalize
 
+using MKL, LinearAlgebra
+import SparseArrays: spzeros
+import SparseArrays: SparseMatrixCSC as SpMatrix
+
 include("operators.jl")
 include("exactdiag.jl")
 include("ode_solver.jl")

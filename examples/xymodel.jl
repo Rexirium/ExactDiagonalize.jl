@@ -12,8 +12,8 @@ let
     init = NumState("1000000000")
     
     os = Tuple[]
-    for j in 1:L-1
-        nj = j + 1
+    for j in 1:L
+        nj = mod1(j + 1, L)
         push!(os, (Δ, :Z, j, :Z, nj))
         push!(os, (1.0, :X, j, :X, nj))
         push!(os, (-1.0, :iY, j, :iY, nj))
