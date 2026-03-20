@@ -1,12 +1,12 @@
-include("operators.jl")
-include("exactdiagonalize.jl")
-include("ode_solver.jl")
-include("sparsemat.jl")
+include("src/operators.jl")
+include("src/exactdiagonalize.jl")
+include("src/ode_solver.jl")
+include("src/sparsemat.jl")
 
 using CairoMakie
 
 let 
-    systype = Val(:Spin)
+    set_systype(:Spin)
     L, N = 10, 1
     Δ = 0.5
 
@@ -20,12 +20,12 @@ let
         push!(os, (-1.0, :iY, j, :iY, nj))
     end
     # push!(os, (1.0, :X, L))
-    opsum = OpSum(os, Float64, systype)
+    opsum = OpSum(os, Float64)
 
     os2 = [(1.0, :Z, j) for j in 1:L]
-    opsum2 = OpSum(os2, Float64, systype)
+    opsum2 = OpSum(os2, Float64)
 
-    obs = OperatorObserver((1.0, :Z, L), init.basis, systype)
+    obs = OperatorObserver((1.0, :Z, L), init.basis)
     
     #@show makeHamiltonian(ops2, init.basis)
     

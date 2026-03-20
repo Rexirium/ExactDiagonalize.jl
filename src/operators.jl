@@ -5,6 +5,13 @@ include("utils.jl")
 include("state_basis.jl")
 
 const SpMatrix = SparseMatrixCSC
+const _systype = Ref{Val}(Val(:Spin))
+
+function set_systype(val::Symbol)
+    _systype[] = Val(val)
+end
+
+get_systype() = _systype[]
 
 abstract type AbstractOp end
 
@@ -19,21 +26,21 @@ mutable struct OpSum{T <: Number}
     opvec::Vector{Vector{<:AbstractOp}}
 end
 
-function os2ops(os::Tuple, systype::Val)
+function os2ops(os::Tuple)
     len = length(os)
     ops = SpinOp[]
     sizehint!(ops, len ÷ 2)
     for s in 2:2:len
-        push!(ops, Operator(os[s], os[s+1], systype))
+        push!(ops, Operator(os[s], os[s+1], _systype[]))
     end
     return ops
 end
 
-function OpSum(osvec::Vector{<:Tuple}, eltype::DataType, systype::Val)
+function OpSum(osvec::Vector{<:Tuple}, eltype::DataType)
     covec = Vector{eltype}()
     opvec = Vector{SpinOp}[]
     for os in osvec
-        ops = os2ops(os, systype)
+        ops = os2ops(os)
         push!(covec, os[1])
         push!(opvec, ops)
     end
@@ -141,8 +148,8 @@ mutable struct OperatorObserver{T <: Number} <: AbstractObserver
     opmat::SpMatrix{T}
     data::Vector{Float64}
 
-    OperatorObserver(os::Tuple, basis::AbstractBasis, systype::Val; sparsed::Bool=true) = new{typeof(os[1])}(
-        op2mat(os[1], os2ops(os, systype), basis; sparsed=sparsed), Vector{Float64}()
+    OperatorObserver(os::Tuple, basis::AbstractBasis; sparsed::Bool=true) = new{typeof(os[1])}(
+        op2mat(os[1], os2ops(os), basis; sparsed=sparsed), Vector{Float64}()
     )
 end
 
