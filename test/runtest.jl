@@ -1,7 +1,7 @@
-include("src/operators.jl")
-include("src/exactdiagonalize.jl")
-include("src/ode_solver.jl")
-include("src/sparsemat.jl")
+include("../src/operators.jl")
+include("../src/exactdiag.jl")
+include("../src/ode_solver.jl")
+include("../src/sparsemat.jl")
 
 using CairoMakie
 
