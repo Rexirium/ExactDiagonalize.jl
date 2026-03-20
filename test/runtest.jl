@@ -1,8 +1,5 @@
-include("../src/operators.jl")
-include("../src/exactdiag.jl")
-include("../src/ode_solver.jl")
-include("../src/sparsemat.jl")
-
+#
+using .ExactDiagonalize
 using CairoMakie
 
 let 
@@ -30,7 +27,7 @@ let
     #@show makeHamiltonian(ops2, init.basis)
     
     ts = 0.0:0.05:10.0
-    @time timeEvolve_exact(opsum, init, ts, obs)
+    @time timeEvolve(opsum, init, ts, obs, exact())
 
     fig = Figure()
     ax = Axis(fig[1,1],

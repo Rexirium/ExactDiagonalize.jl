@@ -1,5 +1,6 @@
+rk4() = Val(:rk4)
 
-function timeEvolve_rk4(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver)
+function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver, ::Val{:rk4})
     ihmat = -im * makeHamiltonian(ops, init.basis; sparsed=true)
     psi = ComplexF64.(init.vector)
     dim = length(psi)

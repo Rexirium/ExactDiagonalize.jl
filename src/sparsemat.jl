@@ -1,3 +1,4 @@
+spmat() = Val(:spmat)
 
 function updating!(psi::Vector{T}, hmat::SpMatrix, dt::Real, order::Int) where T <: Number
     fac = one(T)
@@ -11,7 +12,7 @@ function updating!(psi::Vector{T}, hmat::SpMatrix, dt::Real, order::Int) where T
     end
 end
 
-function timeEvolve_spmat(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver; order::Int=4)
+function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver, ::Val{:spmat}; order::Int=4)
     hmat = makeHamiltonian(ops, init.basis; sparsed=true)
     psi = ComplexF64.(init.vector)
 
