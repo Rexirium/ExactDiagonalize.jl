@@ -26,7 +26,7 @@ and return the sign (-1 or 1) according to whether the count is odd or even.
 function signbetween(bits::Int, i::Unsigned, j::Unsigned)
     mask = 1 << (j - i - 0x01) - 1
     segbits = (bits >> i) & mask
-    return (-1)^count_ones(segbits)
+    return (-1) ^ count_ones(segbits)
 end
 
 function flip(bits::Int, pos::Unsigned)::Int
@@ -57,13 +57,16 @@ function numbitbasis(len::Int, num::Int)
     num == 0 && return Int[0]
     basis = Int[]
     sizehint!(basis, binomial(len, num))
-    maxind = (1 << len) - 1
-    ind = (1 << num) - 1
+
+    len_u = len % UInt8
+    num_u = num % UInt8
+    maxind = (1 << len_u) - 1
+    ind = (1 << num_u) - 1
     while ind <= maxind
         push!(basis, ind)
         u = ind & (-ind)
         v = ind + u
-        next = v + ((v ⊻ ind) ÷ u) >> 2
+        next = v + ((v ⊻ ind) >> 0x02) ÷ u 
         next > maxind && break
         ind = next
     end
