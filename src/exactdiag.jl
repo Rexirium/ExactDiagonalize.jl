@@ -8,9 +8,9 @@ exact() = Val(:exact)
 function spectrum(ops::OpSum, basis::AbstractBasis; retvecs::Bool=false)
     hmat = makeHamiltonian(ops, basis)
     if retvecs 
-        return eigen(Hermitian(hmat))  
+        return eigen!(Hermitian(hmat))  
     else 
-        return eigvals(Hermitian(hmat))
+        return eigvals!(Hermitian(hmat))
     end
 end
 
@@ -40,7 +40,7 @@ end
 # Evolve state for multiple time steps and record observables
 function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
     hmat = makeHamiltonian(ops, init.basis)
-    eigs, U = eigen(Hermitian(hmat))
+    eigs, U = eigen!(Hermitian(hmat))
     dim = length(eigs)
 
     psi = ComplexF64.(init.vector)
