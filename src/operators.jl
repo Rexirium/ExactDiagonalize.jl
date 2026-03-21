@@ -19,10 +19,10 @@ abstract type AbstractOp end
 # Spin operator (e.g., X, iY, Z, CX, CZ)
 struct SpinOp <: AbstractOp
     name::Symbol
-    loc::Union{Int, Tuple{Int, Int}}
+    loc::Union{UInt8, Tuple{UInt8, UInt8}}
 end
 # Construct a Spin operator
-Operator(name::Symbol, loc::Union{Int, Tuple{Int, Int}}, ::Val{:Spin}) = SpinOp(name, loc)
+Operator(name::Symbol, loc::Union{UInt8, Tuple{UInt8, UInt8}}, ::Val{:Spin}) = SpinOp(name, loc)
 
 # Sum of operators with coefficients
 mutable struct OpSum{T <: Number}
@@ -36,7 +36,7 @@ function os2ops(os::Tuple)
     ops = SpinOp[]
     sizehint!(ops, len ÷ 2)
     for s in 2:2:len
-        push!(ops, Operator(os[s], os[s+1], _systype[]))
+        push!(ops, Operator(os[s], os[s+1] .% UInt8, _systype[]))
     end
     return ops
 end
