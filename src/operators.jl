@@ -58,11 +58,19 @@ function OpSum(osvec::Vector{<:Tuple}, eltype::DataType)
     return OpSum{eltype, optype}(covec, opvec)
 end
 
-function Base.:+(opsum::OpSum{T, OpT}, os::Tuple) where{T <: Number, OpT <: AbstractOp}
+function Base.:+(opsum::OpSum{T, OpT}, os::Tuple) where {T <: Number, OpT <: AbstractOp}
     push!(opsum.covec, os[1])
     push!(opsum.opvec, os2ops(os, OpT))
     opsum
 end
+
+function Base.:+(ops1::OpSum{T, OpT}, ops2::OpSum{S, OpT}) where {T <: Number, S <: Number, OpT <: AbstractOp}
+    covec = vcat(ops1.covec, ops2.covec)
+    opvec = vcat(ops1.opvec, ops2.opvec)
+    return OpSum{promote_type(T, S), OpT}(covec, opvec)
+end
+
+
 """
 act a single qubit operator on the state `bits`=|1001011⟩ for bits=(1001011)₂
 |1⟩ = (1, 0)ᵀ = |↑⟩, |0⟩ = (0, 1)ᵀ = |↓⟩

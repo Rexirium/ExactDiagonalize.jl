@@ -56,14 +56,13 @@ L, N = 10, 1  # System size and particle number
 init = NumState("1000000000")
 
 # Build XY Hamiltonian
-os = Tuple[]
+opsum = OpSum(Float64)
 for j in 1:L
-    nj = mod1(j + 1, L)
-    push!(os, (Δ, :Z, j, :Z, nj))        # ZZ interaction
-    push!(os, (1.0, :X, j, :X, nj))      # XX coupling
-    push!(os, (-1.0, :iY, j, :iY, nj))   # YY coupling
+    nj = mod1(j + 1, L) # PBC
+    opsum += (Δ, :Z, j, :Z, nj)
+    opsum += (1.0, :X, j, :X, nj)
+    opsum += (-1.0, :iY, j, :iY, nj)
 end
-opsum = OpSum(os, Float64)
 
 # Define observable and time points
 obs = OperatorObserver((1.0, :Z, L), init.basis)
@@ -71,6 +70,8 @@ ts = 0.0:0.05:10.0
 
 # Run time evolution
 timeEvolve(opsum, init, ts, obs)
+
+@show obs.data # the data recorded
 ```
 
 ## Core API

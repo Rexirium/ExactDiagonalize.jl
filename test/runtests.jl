@@ -20,7 +20,7 @@ using SparseArrays
 
     @testset "State Creation" begin
         # Test NumState creation from integer bits
-        bits = 0b1010
+        bits = 10
         state_num = NumState(4, bits)
         @test state_num.basis.num == count_ones(bits)
         @test length(state_num.vector) == 6  # Hilbert space dimension for 2 particles
