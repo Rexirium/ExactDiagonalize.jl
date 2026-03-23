@@ -36,9 +36,9 @@ Pkg.add(url="https://github.com/Rexirium/ExactDiagonalize")
 
 ## Quick Start
 
-### Basic XY Model Example
+### Basic XXZ Model Example
 
-Simulate time evolution of an XY spin chain:
+Simulate time evolution of an XXZ spin chain:
 
 $$
     H = J \sum_{i = 1}^L \left(X_i X_{i+1} + Y_i Y_{i+1} + \Delta Z_i Z_{i+1} \right). 

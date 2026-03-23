@@ -18,7 +18,7 @@ function translate(strvec::Vector{Symbol})::Int
         bits |= bitDict[s]
         bits <<= 1
     end
-    return bits
+    return bits >> 1
 end
 #===============Basis constructors=================#
 # Basis for states with fixed particle number (e.g. number of up spins)

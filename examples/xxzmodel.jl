@@ -5,13 +5,13 @@ using CairoMakie
 
 let 
     set_systype(:Spin)  # Set system type to spin
-    L, N = 10, 1        # System size and particle number
-    Δ = 2.0             # Interaction parameter
+    L, N = 12, 6     # System size and particle number
+    Δ = 1.0            # Interaction parameter
 
-    # Initial state: single up spin at site 1
-    init = NumState("1000000000")
+    # Initial state: Neel state
+    init = NumState([isodd(j) ? :Up : :Dn for j in 1:L])
     
-    # Build Hamiltonian terms for XY model
+    # Build Hamiltonian terms for XXZ model
     opsum = OpSum(Float64)
     for j in 1:L
         nj = mod1(j + 1, L)
@@ -29,7 +29,7 @@ let
     
     # Time points for evolution
     ts = 0.0:0.05:10.0
-    @time timeEvolve(opsum, init, ts, obs, rk4())
+    @time timeEvolve(opsum, init, ts, obs, exact())
 
     # Plot observable vs time
     fig = Figure()
