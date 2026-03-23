@@ -5,7 +5,7 @@ using CairoMakie
 let 
     set_systype(:Spin)  # Set system type to spin
     L, N = 10, 1        # System size and particle number
-    Δ = 1.0             # Interaction parameter
+    Δ = 1.0         # Interaction parameter
 
     # Initial state: single up spin at site 1
     init = NumState("1000000000")
@@ -40,7 +40,9 @@ let
 
     set_theme!(Axis = (
         xtickalign = 1, 
-        ytickalign = 1
+        ytickalign = 1, 
+        xlabelsize = 18, 
+        ylabelsize = 18
     ))
 
     fig = Figure()
