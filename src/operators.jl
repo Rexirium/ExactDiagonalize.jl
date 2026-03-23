@@ -176,6 +176,27 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis; sparsed::Bool=fa
     return hmat
 end
 
+function apply(opsum::OpSum, psi::AbstractState)
+    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
+    vector = hmat * psi.vector
+    return State(psi.basis, vector)
+end
+
+function apply!(opsum::OpSum, psi::AbstractState)
+    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
+    lmul!(hmat, psi.vector)
+end
+
+function expected(opsum::OpSum, psi::AbstractState)
+    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
+    return real(psi.vector' * hmat * psi.vector)
+end
+
+function inner(x::S, opsum::OpSum, y::S) where S <: AbstractState
+    hmat = makeHamiltonian(opsum, y.basis; sparsed=true)
+    return x.vector' * hmat * y.vector
+end
+
 #=============Obsrever system to record quantities during evolution=============#
 abstract type AbstractObserver end
 

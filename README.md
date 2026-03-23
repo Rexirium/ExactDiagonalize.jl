@@ -87,7 +87,7 @@ timeEvolve(opsum, init, ts, obs)
 
 - **`SpinOp`**: Individual spin operators ($X$, $Y$, $Z$, $\sigma^+$, $\sigma^-$, $iY$, $CX$, $CZ$)
 - **`FermionOp`**: Wait for later development
-- **`Operator`**: Multi-site operator products, such as $aX_i X_{i+1}$ , $b CX_{1,2} Z_3$
+- **`Operator`**: Multi-site operator products, such as $aX_i X_{i+1}$ ,  $b CX_{1,2} Z_3$
 - **`OpSum`**: Linear combinations of operators (Hamiltonian)
 
 ### Functions
@@ -101,6 +101,9 @@ timeEvolve(opsum, init, ts, obs)
 - **`record!(observer, state, step)`**: Record observable at time step `step`
 - **`makeHamiltonian(opsum, basis; sparsed)`**: Convert OpSum to sparse matrix Hamiltonian if `sparsed = true`
   - **Caution!**: For now, the exact diagonalization algorithm only take Hamiltonian as a dense matrix for `eigen` in `LinearAlgebra.jl` do NOT support sparse matrix from `SparseArrays.jl`
+- **`expected(ops, psi)`**: compute the expected value of `ops`, an `OpSum` or an array of `Op`s, w.r.t the state `psi`
+- **`apply[!](ops, psi)`**: apply `ops`, an `OpSum` or an array of `Op`s to the state `psi`, return the result state. (`!` means inplace version to save memory)
+- **`inner(x, ops, y)`**: compute the inner product $\langle x | O|y\rangle$, $O$ can be an `OpSum` or an array of `Op`s
 
 ### System Configuration
 
