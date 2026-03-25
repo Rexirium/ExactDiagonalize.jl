@@ -114,7 +114,8 @@ timeEvolve(opsum, init, ts, obs)
 
 See the `examples/` directory for complete working examples:
 
-- `xymodel.jl`: XY spin chain with time evolution and observable tracking
+- `xxzmodel.jl`: XXZ spin chain with time evolution and observable tracking ($U(1)$ symmetry used)
+- `tfimodel.jl`: Transverse field Ising model time evolution and observable tracking (using full state)
 
 ## Key Features
 
@@ -130,6 +131,7 @@ src/
   ├── ExactDiagonalize.jl   # Main module
   ├── exactdiag.jl          # Diagonalization core functions
   ├── operators.jl          # Operator and Hamiltonian construction
+  ├── observers.jl          # Observer system
   ├── ode_solver.jl         # Time evolution by ODE (RK4)
   ├── sparsemat.jl          # Sparse matrix multiplication method
   ├── state_basis.jl        # State and basis definitions
