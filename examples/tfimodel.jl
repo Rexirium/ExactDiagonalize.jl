@@ -15,7 +15,7 @@ let
         opsum += -B, :X, j
     end
 
-    obs = XObserver(L, init.basis)
+    obs = ZObserver(L, init.basis)
 
     ts = 0.0:0.02:10.0
     @time timeEvolve(opsum, init, ts, obs, exact())

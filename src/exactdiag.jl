@@ -31,6 +31,8 @@ end
 function timeEvolve(ops::OpSum, init::AbstractState, tf::Real)
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen(Hermitian(hmat))
+    replace!(x -> isapprox(x, 0; atol=2*eps(Float64)) ? 0.0 : x, U)
+    
     phases = exp.( - im * tf * eigs)
     expEt = Diagonal(phases)
     final = U * expEt * U' * (init.vector)
@@ -42,6 +44,7 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen!(Hermitian(hmat))
     dim = length(eigs)
+    replace!(x -> isapprox(x, 0; atol=2*eps(Float64)) ? 0.0 : x, U)
 
     psi = ComplexF64.(init.vector)
     init_trans = U' * psi
