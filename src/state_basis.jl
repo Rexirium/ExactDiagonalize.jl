@@ -1,6 +1,5 @@
 # Abstract base types for basis and state representations
 abstract type AbstractBasis end
-abstract type AbstractState end
 
 # Dictionary mapping spin or occupation symbols to bit values
 global bitDict = Dict{Symbol, Bool}(
@@ -11,7 +10,7 @@ global bitDict = Dict{Symbol, Bool}(
 )
 
 # Convert a vector of symbols (e.g. [:Up, :Dn]) to an integer bitstring
-function translate(strvec::Vector{Symbol})::UInt32
+function symbol2bits(strvec::Vector{Symbol})::UInt32
     bits = 0x00000
     for s in strvec
         bits |= bitDict[s]
@@ -19,6 +18,7 @@ function translate(strvec::Vector{Symbol})::UInt32
     end
     return bits >> 0x01
 end
+
 #===============Basis constructors=================#
 # Basis for states with fixed particle number (e.g. number of up spins)
 struct NumBasis <: AbstractBasis
@@ -36,6 +36,9 @@ struct FullBasis <: AbstractBasis
     FullBasis(lsize::Int) = new(lsize, 0x00000 : (0x00001 << lsize - 0x00001))
 end
 
+SpinBasis(lsize::Int) = FullBasis(lsize)
+SpinBasis(lsize::Int, num::Int) = NumBasis(lsize, num)
+
 # Find index of a bitstring in NumBasis (returns 0 if not in basis)
 function findindex(basis::NumBasis, bits::UInt32)::Int
     count_ones(bits) == basis.num || return 0
@@ -46,86 +49,50 @@ end
 findindex(basis::FullBasis, bits::UInt32)::Int = bits + 1
 
 
-#===========Particle number conserved state  ===========#
-
-# State vector for a system with fixed particle number
-mutable struct NumState{T <: Number} <: AbstractState
-    basis::NumBasis      # basis object
-    vector::Vector{T}   # state vector (amplitudes)
-end
-
-
-# Create a NumState with a single basis state set to 1
-function NumState(lsize::Int, bits::UInt32; type::DataType=ComplexF64)
-    basis = NumBasis(lsize, count_ones(bits))
-    vector = zeros(type, length(basis.bitsvec))
-    idx = searchsortedfirst(basis.bitsvec, bits)
-    vector[idx] = one(type)
-    NumState{type}(basis, vector)
-end
-
-# Create NumState from a binary string (e.g. "1010")
-NumState(statestr::String; type::DataType=ComplexF64) = 
-    NumState(length(statestr), parse(UInt32, statestr; base=2); type=type)
-
-# Create NumState from a vector of symbols (e.g. [:Up, :Dn])
-NumState(strvec::Vector{Symbol}; type::DataType=ComplexF64) = 
-    NumState(length(strvec), translate(strvec); type=type)
-
-
-#===============Generic and state================#
-mutable struct FullState{T <: Number} <: AbstractState
-    basis::FullBasis
+#================== Quantum State ===================#
+mutable struct QState{T <: Number}
+    basis::AbstractBasis
     vector::Vector{T}
 end
 
-function FullState(lsize::Int, bits::UInt32; type::DataType=ComplexF64)
+function QState(lsize::Int, bits::UInt32; type::DataType=ComplexF64)
     basis = FullBasis(lsize)
     vector = zeros(type, length(basis.bitsvec))
     vector[bits + 1] = one(type)
-    FullState{type}(basis, vector)
+    QState{type}(basis, vector)
 end
 
-FullState(statestr::String; type::DataType=ComplexF64) = 
-    FullState(length(statestr), parse(UInt32, statestr; base=2); type=type)
-
-FullState(strvec::Vector{Symbol}; type::DataType=ComplexF64) = 
-    FullState(length(strvec), translate(strvec); type=type)
-
-State(basis::NumBasis, vector::Vector{T}) where T <: Number = NumState{T}(basis, vector)
-State(basis::FullBasis, vector::Vector{T}) where T <: Number = FullState{T}(basis, vector)
-
-#============Convertion between two basis=============#
-function FullState(state::NumState{T}, lsize::Int) where T <: Number
-    lsize < state.basis.num && error("system size too small!")
-    basis = FullBasis(lsize)
-    vector = zeros(T, length(basis.bitsvec))
-    inds = state.basis.bitsvec
-    vector[inds] .= state.vector
-
-    return FullState{T}(basis, vector)
+function QState(lsize::Int, num::Int, bits::UInt32; type::DataType=ComplexF64)
+    basis = NumBasis(lsize, num)
+    vector = zeros(type, length(basis.bitsvec))
+    idx = findindex(basis, bits)
+    idx == 0 && error("bitstring not in basis!")
+    vector[idx] = one(type)  # default to first basis state
+    QState{type}(basis, vector)
 end
 
-function NumState(state::FullState{T}, num::Int) where T <: Number
-    num > state.basis.lsize && error("too many particles")
-    basis = NumBasis(state.basis.lsize, num)
-    inds = basis.bitsvec
-    vector = state.vector[inds]
+QState(statestr::String; type::DataType=ComplexF64) = 
+    QState(length(statestr), parse(UInt32, statestr; base=2); type=type)
+QState(strvec::Vector{Symbol}; type::DataType=ComplexF64) = 
+    QState(length(strvec), symbol2bits(strvec); type=type)
 
-    return NumState{T}(basis, vector)
-end
+QState(statestr::String, num::Int; type::DataType=ComplexF64) = 
+    QState(length(statestr), num, parse(UInt32, statestr; base=2); type=type)
+QState(strvec::Vector{Symbol}, num::Int; type::DataType=ComplexF64) = 
+    QState(length(strvec), num, symbol2bits(strvec); type=type)
 
-function LinearAlgebra.normalize!(psi::AbstractState)
+
+function LinearAlgebra.normalize!(psi::QState)
     LinearAlgebra.normalize!(psi.vector)
 end
-LinearAlgebra.norm(psi::AbstractState) = LinearAlgebra.norm(psi.vector)
+LinearAlgebra.norm(psi::QState) = LinearAlgebra.norm(psi.vector)
 
-function inner(x::S, y::S) where S <: AbstractState
+function inner(x::QState, y::QState)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
     return x.vector' * y.vector
 end
 
-function Base.:+(x::S, y::S) where S <: AbstractState
+function Base.:+(x::QState, y::QState)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
-    return State(y.basis, x.vector + y.vector)
+    return QState(y.basis, x.vector + y.vector)
 end

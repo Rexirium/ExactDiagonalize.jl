@@ -7,7 +7,7 @@ let
     L = 12
     B = 0.5
 
-    init = FullState(fill(:Dn, L))
+    init = QState(fill(:Dn, L))
 
     opsum = OpSum(Float64)
     for j in 1:L-1

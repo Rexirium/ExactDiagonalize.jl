@@ -11,7 +11,7 @@ include("ode_solver.jl")
 include("sparsemat.jl")
 
 # export public API
-export NumBasis, FullBasis, AbstractState, NumState, FullState, State
+export NumBasis, FullBasis, SpinBasis, QState
 export set_systype, get_systype, AbstractOp, SpinOp, get_optype, OpSum, makeHamiltonian
 export act, apply, apply!, expected, inner
 export AbstractObserver, OperatorObserver, OpSumObserver, ZObserver, XObserver, record!

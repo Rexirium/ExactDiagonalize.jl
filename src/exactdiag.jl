@@ -28,7 +28,7 @@ function spectrum(ops::OpSum, lsize::Int)
 end
 
 # Evolve state to time tf using exact diagonalization
-function timeEvolve(ops::OpSum, init::AbstractState, tf::Real)
+function timeEvolve(ops::OpSum, init::QState, tf::Real)
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen(Hermitian(hmat))
     replace!(x -> isapprox(x, 0; atol=2*eps(Float64)) ? 0.0 : x, U)
@@ -36,11 +36,11 @@ function timeEvolve(ops::OpSum, init::AbstractState, tf::Real)
     phases = exp.( - im * tf * eigs)
     expEt = Diagonal(phases)
     final = U * expEt * U' * (init.vector)
-    return State(init.basis, final)
+    return QState(init.basis, final)
 end
 
 # Evolve state for multiple time steps and record observables
-function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen!(Hermitian(hmat))
     dim = length(eigs)
@@ -58,8 +58,8 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
         mul!(psi, U, psi_trans)
         record!(obs, psi, i + 1)
     end
-    return State(init.basis, psi)
+    return QState(init.basis, psi)
 end
 
 # Default method: exact diagonalization
-timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver) = timeEvolve(ops, init, ts, obs, Val(:exact))
+timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver) = timeEvolve(ops, init, ts, obs, Val(:exact))

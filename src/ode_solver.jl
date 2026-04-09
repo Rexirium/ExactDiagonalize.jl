@@ -5,7 +5,7 @@ Runge-Kutta 4th order (RK4) time evolution solver
 rk4() = Val(:rk4)
 
 # Evolve state using RK4 method for time steps ts
-function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::AbstractObserver, ::Val{:rk4})
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:rk4})
     ihmat = -im * makeHamiltonian(ops, init.basis; sparsed=true)
     psi = ComplexF64.(init.vector)
     dim = length(psi)
@@ -35,5 +35,5 @@ function timeEvolve(ops::OpSum, init::AbstractState, ts::AbstractVector, obs::Ab
 
         psi += (h/6) * (k1 + 2*k2 + 2*k3 + k4)
     end
-    return State(init.basis, psi)
+    return QState(init.basis, psi)
 end

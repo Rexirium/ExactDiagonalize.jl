@@ -18,29 +18,29 @@ using SparseArrays
     end
 
     @testset "State Creation" begin
-        # Test NumState creation from integer bits
+        # Test QState creation from integer bits
         bits = 0x0000a
-        state_num = NumState(4, bits)
+        state_num = QState(4, 2, bits)
         @test state_num.basis.num == count_ones(bits)
         @test length(state_num.vector) == 6  # Hilbert space dimension for 2 particles
         @test real(sum(abs.(state_num.vector))) ≈ 1.0  # Normalized
         
-        # Test FullState creation
-        state_full = FullState(3, 0x00005)
+        # Test ull dimension State creation
+        state_full = QState(3, 0x00005)
         @test state_full.basis.lsize == 3
         @test length(state_full.vector) == 8
         @test state_full.vector[5 + 1] ≈ 1.0
         
-        # Test NumState creation from binary string
-        state_str = NumState("1010")
+        # Test QState creation from binary string
+        state_str = QState("1010", 2)
         @test state_str.basis.num == 2
         
-        # Test FullState creation from binary string
-        state_full_str = FullState("101")
+        # Test full dimension State creation from binary string
+        state_full_str = QState("101")
         @test state_full_str.basis.lsize == 3
         
         # Test state with different element types
-        state_complex = NumState(3, 0x00006; type=ComplexF64)
+        state_complex = QState(3, 2, 0x00006; type=ComplexF64)
         @test eltype(state_complex.vector) == ComplexF64
     end
 
@@ -189,7 +189,7 @@ using SparseArrays
         ops_sum = OpSum(operators, ComplexF64)
         
         # Initial state
-        init_state = FullState(2, 0x00000)
+        init_state = QState(2, 0x00000)
         
         # Evolve to short time
         tf = 0.1
@@ -207,7 +207,7 @@ using SparseArrays
         ]
         ops_sum = OpSum(operators, ComplexF64)
         
-        init_state = FullState(2, 0x00000)
+        init_state = QState(2, 0x00000)
         times = [0.0, 0.01, 0.02]
         obs = ZObserver(1, init_state.basis)
         
@@ -226,7 +226,7 @@ using SparseArrays
         ]
         ops_sum = OpSum(operators, ComplexF64)
         
-        init_state = FullState(2, 0x00001)
+        init_state = QState(2, 0x00001)
         times = [0.0, 0.01, 0.02]
         obs = XObserver(1, init_state.basis)
         

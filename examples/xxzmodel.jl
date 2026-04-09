@@ -9,7 +9,7 @@ let
     Δ = 1.0            # Interaction parameter
 
     # Initial state: Neel state
-    init = NumState([isodd(j) ? :Up : :Dn for j in 1:L])
+    init = QState([isodd(j) ? :Up : :Dn for j in 1:L], N)
     
     # Build Hamiltonian terms for XXZ model
     opsum = OpSum(Float64)

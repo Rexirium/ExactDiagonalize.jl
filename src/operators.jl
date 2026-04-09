@@ -129,27 +129,27 @@ function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis; spars
 end
 
 # Apply operator(s) to a state and return new state
-function apply(ops::Vector{<:AbstractOp}, psi::AbstractState, coeff::Number=1.0)
+function apply(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
     opmat = op2mat(coeff, ops, psi.basis)
     vector = opmat * psi.vector
-    return State(psi.basis, vector)
+    return QState(psi.basis, vector)
 end
 
 # In-place apply operator(s) to a state
-function apply!(ops::Vector{<:AbstractOp}, psi::AbstractState, coeff::Number=1.0)
+function apply!(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
     opmat = op2mat(coeff, ops, psi.basis)
     lmul!(opmat, psi.vector)
 end
 
 # Compute expectation value of operator(s) in a state
-function expected(ops::Vector{<:AbstractOp}, psi::AbstractState, coeff::Number=1.0)
+function expected(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
     opmat = op2mat(coeff, ops, psi.basis)
     v = psi.vector
     return real(v' * opmat * v)
 end
 
 # Compute ⟨x|O|y⟩ for two states and operator(s)
-function inner(x::S, ops::Vector{<:AbstractOp}, y::S, coeff::Number=1.0) where S <: AbstractState
+function inner(x::QState, ops::Vector{<:AbstractOp}, y::QState, coeff::Number=1.0)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
     opmat = op2mat(coeff, ops, y.basis)
     return x.vector' * opmat * y.vector
@@ -178,23 +178,23 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis; sparsed::Bool=fa
     return hmat
 end
 
-function apply(opsum::OpSum, psi::AbstractState)
+function apply(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
     vector = hmat * psi.vector
-    return State(psi.basis, vector)
+    return QState(psi.basis, vector)
 end
 
-function apply!(opsum::OpSum, psi::AbstractState)
+function apply!(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
     lmul!(hmat, psi.vector)
 end
 
-function expected(opsum::OpSum, psi::AbstractState)
+function expected(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
     return real(psi.vector' * hmat * psi.vector)
 end
 
-function inner(x::S, opsum::OpSum, y::S) where S <: AbstractState
+function inner(x::QState, opsum::OpSum, y::QState)
     hmat = makeHamiltonian(opsum, y.basis; sparsed=true)
     return x.vector' * hmat * y.vector
 end
