@@ -101,7 +101,7 @@ timeEvolve(opsum, init, ts, obs)
   - **Caution!**: For now, the exact diagonalization algorithm only take Hamiltonian as a dense matrix for `eigen` in `LinearAlgebra.jl` do NOT support sparse matrix from `SparseArrays.jl`
 - **`expected(ops, psi)`**: compute the expected value of `ops`, an `OpSum` or an array of `Op`s, w.r.t the state `psi`
 - **`apply[!](ops, psi)`**: apply `ops`, an `OpSum` or an array of `Op`s to the state `psi`, return the result state. (`!` means inplace version to save memory)
-- **`inner(x, ops, y)`**: compute the inner product $\langle x | O|y\rangle$, $O$ can be an `OpSum` or an array of `Op`s
+- **`dot(x, ops, y)`**: compute the inner product $\langle x | O|y\rangle$, $O$ can be an `OpSum` or an array of `Op`s
 
 ### System Configuration
 

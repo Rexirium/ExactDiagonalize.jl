@@ -149,10 +149,10 @@ function expected(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
 end
 
 # Compute ⟨x|O|y⟩ for two states and operator(s)
-function inner(x::QState, ops::Vector{<:AbstractOp}, y::QState, coeff::Number=1.0)
+function LinearAlgebra.dot(x::QState, ops::Tuple{Number, Vector{<:AbstractOp}}, y::QState)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
-    opmat = op2mat(coeff, ops, y.basis)
-    return x.vector' * opmat * y.vector
+    opmat = op2mat(ops[1], ops[2], y.basis)
+    return dot(x.vector, opmat, y.vector)
 end
 
 """
@@ -191,10 +191,10 @@ end
 
 function expected(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    return real(psi.vector' * hmat * psi.vector)
+    return real(dot(psi.vector, opsum, psi.vector))
 end
 
-function inner(x::QState, opsum::OpSum, y::QState)
+function LinearAlgebra.dot(x::QState, opsum::OpSum, y::QState)
     hmat = makeHamiltonian(opsum, y.basis; sparsed=true)
-    return x.vector' * hmat * y.vector
+    return dot(x.vector, hmat, y.vector)
 end

@@ -11,7 +11,7 @@ mutable struct OperatorObserver{T <: Number} <: AbstractObserver
 end
 
 function record!(obs::OperatorObserver, psi::Vector, step::Int)
-    val = real(psi' * obs.opmat * psi)
+    val = real(dot(psi, obs.opmat, psi))
     push!(obs.data, val)
 end
 
@@ -25,7 +25,7 @@ mutable struct OpSumObserver{T <: Number} <: AbstractObserver
 end
 
 function record!(obs::OpSumObserver, psi::Vector, step::Int)
-    val = real(psi' * obs.opsmat * psi)
+    val = real(dot(psi, obs.opsmat, psi))
     push!(obs.data, val)
 end
 
@@ -41,7 +41,7 @@ end
 
 function record!(obs::ZObserver, psi::Vector, step::Int)
     phi = psi .* obs.phases
-    val = real(psi' * phi)
+    val = real(dot(psi, phi))
     push!(obs.data, val)
 end
 
@@ -59,6 +59,6 @@ end
 function record!(obs::XObserver, psi::Vector, step::Int)
     phi = similar(psi)
     phi[obs.idx0], phi[obs.idx1] = psi[obs.idx1], psi[obs.idx0]
-    val = real(psi' * phi)
+    val = real(dot(psi, phi))
     push!(obs.data, val)
 end

@@ -13,7 +13,7 @@ include("sparsemat.jl")
 # export public API
 export AbstractBasis, SpinBasis, QState
 export set_systype, get_systype, AbstractOp, SpinOp, get_optype, OpSum, makeHamiltonian
-export act, apply, apply!, expected, inner
+export act, apply, apply!, expected
 export AbstractObserver, OperatorObserver, OpSumObserver, ZObserver, XObserver, record!
 export spectrum, exact, rk4, spmat, timeEvolve
 

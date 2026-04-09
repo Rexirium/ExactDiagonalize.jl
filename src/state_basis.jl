@@ -14,7 +14,7 @@ abstract type AbstractBasis end
 # Dictionary mapping spin or occupation symbols to bit values used internally
 # for efficient bitstring representation of quantum states.
 # Symbols: :Up/Dn (spins), :Occ/Emp (occupation)
-global bitDict = Dict{Symbol, Bool}(
+const bitDict = Dict{Symbol, Bool}(
     :Up => true,  # Spin up or occupied state
     :Dn => false,  # Spin down or empty state
     :Occ => true,  # Occupied state (fermionic)
@@ -77,8 +77,8 @@ end
 # QUANTUM STATE CONSTRUCTORS
 # ============================================================================
 # Construct the Quantum state with basis and coefficient vector
-struct QState{T <: Number}
-    basis::AbstractBasis
+struct QState{T <: Number, B <: AbstractBasis}
+    basis::B
     vector::Vector{T}
 end
 
@@ -88,7 +88,7 @@ function QState(lsize::Int, bits::UInt32; num = nothing, kint = nothing, type::D
     idx = findindex(basis, bits) # find the index of the assigned state
     idx > length(basis.bitsvec) && error("bitstring not in basis!")
     vector[idx] = one(type) # nonzero coefficient only for the assigned state
-    QState{type}(basis, vector)
+    QState{type, SpinBasis}(basis, vector)
 end
 
 QState(statestr::String; num = nothing, kint = nothing, type::DataType = ComplexF64) = 
@@ -103,9 +103,9 @@ function LinearAlgebra.normalize!(psi::QState)
 end
 LinearAlgebra.norm(psi::QState) = LinearAlgebra.norm(psi.vector)
 
-function inner(x::QState, y::QState)
+function LinearAlgebra.dot(x::QState, y::QState)
     x.basis == y.basis || error("Basis mismatch! Cannot perform inner product on different bases.")
-    return x.vector' * y.vector
+    return dot(x.vector, y.vector)
 end
 
 function Base.:+(x::QState, y::QState)

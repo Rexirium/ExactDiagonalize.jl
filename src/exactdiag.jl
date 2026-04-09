@@ -31,30 +31,27 @@ end
 function timeEvolve(ops::OpSum, init::QState, tf::Real)
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen(Hermitian(hmat))
-    replace!(x -> isapprox(x, 0; atol=2*eps(Float64)) ? 0.0 : x, U)
     
-    phases = exp.( - im * tf * eigs)
+    phases = cis.( -tf * eigs)
     expEt = Diagonal(phases)
     final = U * expEt * U' * (init.vector)
     return QState(init.basis, final)
 end
 
 # Evolve state for multiple time steps and record observables
-function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractObserver, ::Val{:exact})
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen!(Hermitian(hmat))
-    dim = length(eigs)
-    replace!(x -> isapprox(x, 0; atol=2*eps(Float64)) ? 0.0 : x, U)
 
     psi = ComplexF64.(init.vector)
-    init_trans = U' * psi
-    phases = Vector{ComplexF64}(undef, dim)
-    psi_trans = Vector{ComplexF64}(undef, dim)
+    psi_trans = U' * psi
+
+    dt = step(ts)
+    step_phases = cis.(-dt * eigs)
 
     record!(obs, psi, 1)
-    for (i, t) in enumerate(ts[2:end])
-        phases .= exp.( - im * t * eigs)
-        psi_trans .= phases .* init_trans
+    for i in 2:length(ts)
+        psi_trans .*= step_phases
         mul!(psi, U, psi_trans)
         record!(obs, psi, i + 1)
     end
@@ -62,4 +59,4 @@ function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractO
 end
 
 # Default method: exact diagonalization
-timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver) = timeEvolve(ops, init, ts, obs, Val(:exact))
+timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractObserver) = timeEvolve(ops, init, ts, obs, Val(:exact))
