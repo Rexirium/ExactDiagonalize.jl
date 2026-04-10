@@ -119,13 +119,7 @@ function apply(coef::Number, ops::Vector{<:AbstractOp}, bits::UInt32)
 end
 
 # Build operator matrix in given basis
-# Outer function for flexibility
-function op2mat(coeff::Number, ops::Vector{<:AbstractOp}, basis::AbstractBasis; sparsed::Bool=true)
-    _op2mat(coeff, ops, basis, sparsed)
-end
-
-# Inner function for type stability
-@inline function _op2mat(coeff::T, ops::Vector{O}, basis::B, sparsed::Bool) where {T, O, B}
+function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis, sparsed::Bool=true) where T <: Number
     dim = length(basis.bitsvec)
     opmat = sparsed ? spzeros(T, dim, dim) : zeros(T, dim, dim)
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
