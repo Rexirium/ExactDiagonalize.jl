@@ -79,11 +79,15 @@ timeEvolve(opsum, init, ts, obs)
 ### State Representation
 
 - **`QState`**: Quantum state defined with basis and coefficient vector
-- **`SpinBasis`**: Basis for spin one-half system
+- **`SpinBasis(lsize; num, kint)`**: Basis for spin one-half system (only one dimension so far)
+  - The system has `lsize` sites with either spin-up $\uparrow$ represented by `1` or spin-down $\downarrow$ represented by `0`, i.e. on-site Hilbert subspace has dimension $d=2$ so far.
+  - If only `num` is passed, the method will generate basis in subsector with conserved total particle number (total spin-z) `num`.
+  - If only `kint` is passed, the method will generate basis in subsector with conserved quasi-momentum $k = 2\pi m/L,\; m = 0, 1, \ldots L-1$, with $m$ labeled by `kint`
+  - If none of the above is passed, the method will generate all $2^L$ full basis.
 
 ### Operators
 
-- **`SpinOp`**: Individual spin operators ($X$, $Z$, $\sigma^+$, $\sigma^-$, $iY$, $CX$, $CZ$)
+- **`SpinOp`**: Individual spin operators ($X$, $Z$, $iY$, $\sigma^+$, $\sigma^-$, $CX$, $CZ$)
 - **`FermionOp`**: Wait for later development
 - **`Operator`**: Multi-site operator products, such as $aX_i X_{i+1}$ ,  $b CX_{1,2} Z_3$
 - **`OpSum`**: Linear combinations of operators (Hamiltonian)
@@ -97,7 +101,8 @@ timeEvolve(opsum, init, ts, obs)
   -  `rk4()` for ODE solver using 4th order Runge-Kutta algorithm, 
   - `spmat()` for sparse matrix multiplication
 - **`record!(observer, state, step)`**: Record observable at time step `step`
-- **`makeHamiltonian(opsum, basis; sparsed)`**: Convert OpSum to sparse matrix Hamiltonian if `sparsed = true`
+- **`makeHamiltonian(opsum, basis; sparsed, dtype)`**: Convert OpSum to sparse matrix Hamiltonian if `sparsed = true`
+  - element type may **NOT be `dtype`** as assigned when not possible
   - **Caution!**: For now, the exact diagonalization algorithm only take Hamiltonian as a dense matrix for `eigen` in `LinearAlgebra.jl` do NOT support sparse matrix from `SparseArrays.jl`
 - **`expected(ops, psi)`**: compute the expected value of `ops`, an `OpSum` or an array of `Op`s, w.r.t the state `psi`
 - **`apply[!](ops, psi)`**: apply `ops`, an `OpSum` or an array of `Op`s to the state `psi`, return the result state. (`!` means inplace version to save memory)
@@ -139,7 +144,7 @@ src/
 ## Acknowlegement
 
 - The motivation to develop this package comes from the homework of the course *Nonequilibrium Dynamics in Closed Quantum System* taught by HongZheng Zhao in the spring semester of 2026 at the School of Physics, Peking University.
-- The ideas of `OpSum` and `AbstractObserver` are inspired by the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl) project by Matt Fishman (@mtfishman) and other developers.
+- The ideas of `OpSum` and `AbstractObserver` are inspired by the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl) project by Matthew Fishman (@mtfishman) and other developers.
 
 ## Contributing
 
