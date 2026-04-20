@@ -131,9 +131,11 @@ function apply(coef::Number, ops::Vector{<:AbstractOp}, bits::UInt32)
 end
 
 # Build operator matrix in given basis
-function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; sparsed::Bool=true) where {T <: Number, N}
+function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
+    sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number, N}
     dim = length(basis.bitsvec)
-    opmat = sparsed ? spzeros(T, dim, dim) : zeros(T, dim, dim)
+    eltype = promote_type(T, dtype)
+    opmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = apply(coeff, ops, bits)
@@ -144,9 +146,16 @@ function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing
     return opmat
 end
 
-function op2mat(coeff::Number, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; sparsed::Bool=true)
+function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
+    sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number}
     dim = length(basis.bitsvec)
-    opmat = sparsed ? spzeros(ComplexF64, dim, dim) : zeros(ComplexF64, dim, dim)
+    
+    if basis.kint == 0 || basis.kint == basis.lsize / 2
+        eltype = promote_type(T, dtype)
+    else
+        eltype = ComplexF64
+    end
+    opmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
     ks = 2π * basis.kint / basis.lsize
     orbits = basis.orbsize
 
@@ -194,13 +203,15 @@ Construct the hamiltonian matrix from OpSum type with assigned basis.
 Return either dense or sparse matrix controled by sparsed, default to be dense
 because `eigen` in LinearAlgebra does not support sparse matrix.
 """
-function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; sparsed::Bool=false) where {T <: Number, N}
+function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; 
+    sparsed::Bool=false, dtype::DataType=Float64) where {T <: Number, N}
     dim = length(basis.bitsvec)
     opnum = length(opsum.covec)
     covec = opsum.covec
     opvec = opsum.opvec
 
-    hmat = sparsed ? spzeros(T, dim, dim) : zeros(T, dim, dim) 
+    eltype = promote_type(T, dtype)
+    hmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim) 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = apply(covec[s], opvec[s], bits)
@@ -212,7 +223,8 @@ function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; sparsed:
     return hmat
 end
 
-function makeHamiltonian(opsum::OpSum, basis::SpinBasis{Nothing, Int}; sparsed::Bool=false)
+function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{Nothing, Int}; 
+    sparsed::Bool=false, dtype::DataType=Float64) where T <: Number
     dim = length(basis.bitsvec)
     opnum = length(opsum.covec)
     covec = opsum.covec
@@ -220,7 +232,12 @@ function makeHamiltonian(opsum::OpSum, basis::SpinBasis{Nothing, Int}; sparsed::
     ks = 2π * basis.kint / basis.lsize
     orbits = basis.orbsize
 
-    hmat = sparsed ? spzeros(ComplexF64, dim, dim) : zeros(ComplexF64, dim, dim) 
+    if basis.kint == 0 || basis.kint == basis.lsize / 2
+        eltype = promote_type(T, dtype)
+    else
+        eltype = ComplexF64
+    end
+    hmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = apply(covec[s], opvec[s], bits)
@@ -247,7 +264,7 @@ end
 
 function expected(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    return real(dot(psi.vector, opsum, psi.vector))
+    return real(dot(psi.vector, hmat, psi.vector))
 end
 
 function LinearAlgebra.dot(x::QState, opsum::OpSum, y::QState)
