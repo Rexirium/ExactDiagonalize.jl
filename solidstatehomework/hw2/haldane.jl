@@ -51,18 +51,16 @@ end
 
 function updateHaldaneHamiltonian!(hmat::Matrix{T}, Lx::Int, ky::Float64, t1::Real, t2::Number; m2::Real=0.0, start::Char='B') where T <: Number
     t2a, phi = abs(t2), angle(t2)
-    
-    tacosp, tacosm = 2t2a * cos(ky + phi) + m2, 2t2a * cos(ky - phi) - m2
-    tacosp2, tacosm2 = 2t2a * cos(ky/2 + phi), 2t2a * cos(ky/2 - phi)
-    tcos = 2t1 * cos(ky / 2)
 
-    is_B = start == 'B'
-    dd_o::T = ifelse(is_B, tacosm, tacosp)
-    dd_e::T = ifelse(is_B,  tacosp, tacosm)
-    d1_o::T = ifelse(is_B, tcos, t1)
-    d1_e::T = ifelse(is_B, t1, tcos)
-    d2_o::T = ifelse(is_B, tacosp2, tacosm2)
-    d2_e::T = ifelse(is_B, tacosm2, tacosp2)
+    if start == 'B'
+        dd_o, dd_e = convert(T, 2t2a * cos(ky - phi) - m2), convert(T, 2t2a * cos(ky + phi) + m2)
+        d1_o, d1_e = convert(T, 2t1 * cos(ky / 2)), convert(T, t1)
+        d2_o, d2_e = convert(T, 2t2a * cos(ky/2 + phi)), convert(T, 2t2a * cos(ky/2 - phi))
+    else
+        dd_o, dd_e = convert(T, 2t2a * cos(ky + phi) + m2), convert(T, 2t2a * cos(ky - phi) - m2)
+        d1_o, d1_e = convert(T, t1), convert(T, 2t1 * cos(ky / 2))
+        d2_o, d2_e = convert(T, 2t2a * cos(ky/2 - phi)), convert(T, 2t2a * cos(ky/2 + phi))
+    end
 
     @inbounds for j in 1 : Lx
         is_odd = isodd(j)

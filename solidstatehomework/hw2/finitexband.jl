@@ -2,27 +2,30 @@ using CairoMakie
 
 include("haldane.jl")
 
-function plot_Haldane_spectrum(Lx::Int, nky::Int, t1::Real, t2::Number; m2::Real=0.0, start::Char='B') 
-    kys = range(0, 2π, nky)
+function plot_Haldane_spectrum(Lx::Int, nky::Int, t1::Real, t2::Number; m2::Real=0.0, start::Char='B')
+    kys = start == 'B' ? range(0, 2π, nky) : range(-π, π, nky)
+    kyc = start == 'B' ? π : 0.0
     spectra = Matrix{Float64}(undef, Lx, nky)
 
     H = zeros(Lx, Lx)
-    for (i, ky) in enumerate(kys)
-        updateHaldaneHamiltonian2!(H, Lx, ky, t1, t2; m2 = m2, start=start)
+    @time for (i, ky) in enumerate(kys)
+        updateHaldaneHamiltonian!(H, Lx, ky, t1, t2; m2 = m2, start=start)
         spectra[:, i] = eigvals(H)
     end
 
     fig = Figure(size=(800, 600))
     ax = Axis(fig[1, 1], title="Haldane Spectrum", 
         xlabel=L"k_y a_y", ylabel=L"E", 
-        xticks=(0 : π/2 : 2π, [L"0", L"π/2", L"π", L"3π/2", L"2π"])
+        xticks= start == 'B' ? 
+            (0 : π/2 : 2π, [L"0", L"π/2", L"π", L"3π/2", L"2π"]) : 
+            (-π : π/2 : π, [L"-π", L"-π/2", L"0", L"π/2", L"π"])
     )
 
     for j in 1:Lx
         lines!(ax, kys, spectra[j, :], color=:black, linewidth=1)
     end
-    vlines!(ax, [π / 2], color=:red, linestyle=:dash)
-    vlines!(ax, [3π/2], color=:red, linestyle=:dash)
+    vlines!(ax, [kyc - π/2], color=:red, linestyle=:dash)
+    vlines!(ax, [kyc + π/2], color=:red, linestyle=:dash)
     fig
 end
 
@@ -57,6 +60,6 @@ let
         ylabelsize = 18,
     ))
 
-    fig = plot_Haldane_edgestates(50, [1.0], 1.0, 0.2im; start='B')
-    save("solidstatehomework/hw2/edgestate.png", fig)
+    fig = plot_Haldane_spectrum(50, 501, 1.0, 0.0; m2 = 0.2,  start='B')
+    #save("solidstatehomework/hw2/edgestate.png", fig)
 end
