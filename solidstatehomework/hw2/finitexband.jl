@@ -8,7 +8,7 @@ function plot_Haldane_spectrum(Lx::Int, nky::Int, t1::Real, t2::Number; m2::Real
     spectra = Matrix{Float64}(undef, Lx, nky)
 
     H = zeros(Lx, Lx)
-    @time for (i, ky) in enumerate(kys)
+    for (i, ky) in enumerate(kys)
         updateHaldaneHamiltonian!(H, Lx, ky, t1, t2; m2 = m2, start=start)
         spectra[:, i] = eigvals(H)
     end
@@ -34,7 +34,7 @@ function plot_Haldane_edgestates(Lx::Int, kys::Vector{Float64}, t1::Real, t2::Nu
 
     for (row, kyc) in enumerate(kys)
         H = makeHaldaneHamiltonian(Lx, kyc * π, t1, t2; m2=m2, start=start)
-        edgestates = get_edgestates(H)
+        edgestates = get_edgestates(H; zeromode=false)
 
         ax = Axis(fig[row, 1], 
             title="Haldane Edge States at k_y a_y = $(kyc)π", 
@@ -60,6 +60,6 @@ let
         ylabelsize = 18,
     ))
 
-    fig = plot_Haldane_spectrum(50, 501, 1.0, 0.0; m2 = 0.2,  start='B')
+    fig = plot_Haldane_edgestates(50, [0.5], 1.0, 0.2im; m2=0, start='B')
     #save("solidstatehomework/hw2/edgestate.png", fig)
 end

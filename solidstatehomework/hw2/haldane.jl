@@ -126,9 +126,13 @@ function solvedegenerate(degstates::Matrix)
     return degstates * evecs
 end
 
-function get_edgestates(H::Matrix{S}) where S <: Number
+function get_edgestates(H::Matrix{S}; zeromode::Bool=true) where S <: Number
     evals, evecs = eigen(Hermitian(H))
-    deginds = findall(x -> isapprox(x, 0.0, atol=1e-5), evals)
+    if zeromode
+        deginds = findall(x -> isapprox(x, 0.0, atol=1e-5), evals)
+    else
+        deginds = [length(evals) ÷ 2, length(evals) ÷ 2 + 1]
+    end
     
     if !isempty(deginds)
         println("Degenerate states found, solving...")
