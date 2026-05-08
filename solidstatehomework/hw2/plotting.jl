@@ -86,15 +86,15 @@ let
         ylabelsize = 18,
     ))
 
+    fig0 = Figure()
+    bandplot!(fig0[1,1], kx_grid, ky_grid, lowerband, upperband)
+    save("solidstatehomework/hw2/band_1.png", fig0)
+
     fig = Figure(size=(600, 750))
-    
-    # bandplot!(fig[1,1], kx_grid, ky_grid, lowerband, upperband)
     
     ga = fig[1,1] = GridLayout()
     gb = fig[2,1] = GridLayout()
     curvatureplot!(ga, kx_grid, ky_grid, curvature, chernnum)
     eigenstateplot!(gb, kx_list, ky_list, lowervecs_list)
-    
-    fig
     save("solidstatehomework/hw2/curvature_1.png", fig)
 end
