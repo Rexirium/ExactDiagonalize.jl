@@ -27,14 +27,14 @@ function timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractOb
 
         # RK4 steps
         mul!(k1, ihmat, psi)
-        tmp = psi + h_2 * k1
+        @. tmp = psi + h_2 * k1
         mul!(k2, ihmat, tmp)
-        tmp = psi + h_2 * k2
+        @. tmp = psi + h_2 * k2
         mul!(k3, ihmat, tmp)
-        tmp = psi + h * k3
+        @. tmp = psi + h * k3
         mul!(k4, ihmat, tmp)
 
-        psi += (h/6) * (k1 + 2*k2 + 2*k3 + k4)
+        @. psi += (h/6) * (k1 + 2*k2 + 2*k3 + k4)
     end
     return QState(init.basis, psi)
 end

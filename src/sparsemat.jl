@@ -12,7 +12,7 @@ function updating!(psi::Vector{T}, hmat::SpMatrix, dt::Real, order::Int) where T
     for k in 1:order  # calculate the (-iHt)^k / k! term iteratively
         fac *= -im * dt / k
         mul!(Hpsi, hmat, tmp)
-        psi .+= fac * Hpsi
+        psi .+= fac .* Hpsi
         tmp .= Hpsi
     end
 end
