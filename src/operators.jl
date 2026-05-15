@@ -133,7 +133,7 @@ end
 # Build operator matrix in given basis
 function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
     sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number, N}
-    dim = length(basis.bitsvec)
+    dim = basis.dim
     eltype = promote_type(T, dtype)
     opmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
 
@@ -148,7 +148,7 @@ end
 
 function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
     sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number}
-    dim = length(basis.bitsvec)
+    dim = basis.dim
     
     if basis.kint == 0 || basis.kint == basis.lsize / 2
         eltype = promote_type(T, dtype)
@@ -205,7 +205,7 @@ because `eigen` in LinearAlgebra does not support sparse matrix.
 """
 function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; 
     sparsed::Bool=false, dtype::DataType=Float64) where {T <: Number, N}
-    dim = length(basis.bitsvec)
+    dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
     opvec = opsum.opvec
@@ -225,7 +225,7 @@ end
 
 function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{Nothing, Int}; 
     sparsed::Bool=false, dtype::DataType=Float64) where T <: Number
-    dim = length(basis.bitsvec)
+    dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
     opvec = opsum.opvec

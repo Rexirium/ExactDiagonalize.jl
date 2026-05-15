@@ -38,6 +38,7 @@ end
 # Consstruct basis for 1D spin system
 struct SpinBasis{N, K, V <: AbstractVector{UInt32}} <: AbstractBasis
     lsize::Int
+    dim::Int
     num::N # total spin up numbers
     kint::K # momentum sector label, i.e. `m` in  k = 2πm/L
     bitsvec::V
@@ -48,14 +49,14 @@ function SpinBasis(lsize::Int; num = nothing, kint = nothing)
     if isnothing(num) && isnothing(kint)
         # full basis use UnitRange to save memory
         bitsvec = 0x00000 : ((0x00001 << lsize) - 0x00001)
-        return SpinBasis(lsize, num, kint, bitsvec, UInt32[])
+        return SpinBasis(lsize, 1 << lsize, num, kint, bitsvec, UInt32[])
     elseif !isnothing(num) && isnothing(kint)
         # Generate bits vector with fixed `1` s
         bitsvec = numbitbasis(lsize, num)
-        return SpinBasis(lsize, num, kint, bitsvec, UInt32[])
+        return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, UInt32[])
     elseif isnothing(num) && !isnothing(kint)
         bitsvec, orbsize = momentbitbasis(lsize, kint)
-        return SpinBasis(lsize, num, kint, bitsvec, orbsize)
+        return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, orbsize)
     else
         error("Invalid basis type, wait for later development.")
     end
@@ -71,7 +72,7 @@ end
 
 # find index of a product state in number conserving basis
 function findindex(basis::SpinBasis{Int, Nothing}, bits::UInt32)::Int
-    count_ones(bits) == basis.num || return length(basis.bitsvec) + 1  # if number of ones doesn't match, return out of bounds index
+    count_ones(bits) == basis.num || return basis.dim + 1  # if number of ones doesn't match, return out of bounds index
     return searchsortedfirst(basis.bitsvec, bits)
 end
 
@@ -100,7 +101,7 @@ function findindex(basis::SpinBasis{Int, Int}, bits::UInt32)::Int
 end
 
 function Base.print(basis::SpinBasis; bitstyle::String="bin")
-    println("Basis size: $(length(basis.bitsvec))")
+    println("Basis size: $(basis.dim)")
     println("Index\tState\tInteger")
     if bitstyle == "bin"
         for (i, bits) in enumerate(basis.bitsvec)
@@ -129,9 +130,9 @@ end
 
 function QState(lsize::Int, bits::UInt32; num = nothing, kint = nothing, type::DataType = ComplexF64)
     basis = SpinBasis(lsize; num = num, kint = kint)
-    vector = zeros(type, length(basis.bitsvec))
+    vector = zeros(type, basis.dim)
     idx = findindex(basis, bits) # find the index of the assigned state
-    idx > length(basis.bitsvec) && error("bitstring not in basis!")
+    idx > basis.dim && error("bitstring not in basis!")
     vector[idx] = one(type) # nonzero coefficient only for the assigned state
     QState{type, SpinBasis}(basis, vector)
 end

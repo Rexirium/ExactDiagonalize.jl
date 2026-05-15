@@ -291,7 +291,7 @@ using SparseArrays
         
         # Test with invalid state (wrong particle number)
         idx_invalid = findindex(basis, 0x00001)
-        @test idx_invalid == length(basis.bitsvec) + 1
+        @test idx_invalid == basis.dim + 1
         
         # Test findindex for Full dimension SpinBasis
         basis_full = SpinBasis(3)
