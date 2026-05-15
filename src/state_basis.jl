@@ -101,17 +101,18 @@ function findindex(basis::SpinBasis{Int, Int}, bits::UInt32)::Int
 end
 
 function Base.print(basis::SpinBasis; bitstyle::String="bin")
+    lsize = basis.lsize
     println("Basis size: $(basis.dim)")
     println("Index\tState\tInteger")
     if bitstyle == "bin"
         for (i, bits) in enumerate(basis.bitsvec)
-            bstr = bitstring(bits)[33 - basis.lsize : end]
+            bstr = bitstring(bits)[33 - lsize : end]
             bstr = "| " * join(bstr, ' ') * " ⟩"
             println("$(i).\t$bstr\t$bits")
         end
     elseif bitstyle == "sym" || bitstyle == "arrow"
         for (i, bits) in enumerate(basis.bitsvec)
-            bstr = bitstring(bits)[33 - basis.lsize : end]
+            bstr = bitstring(bits)[33 - lsize : end]
             sstr = replace(bstr, '1' => "↑", '0' => "↓")
             sstr = '|' * join(sstr, ' ') * " ⟩"
             println("$(i).\t$sstr\t$bits")
