@@ -154,8 +154,8 @@ end
 function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
     sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number, N}
     dim = basis.dim
-    eltype = promote_type(T, dtype)
-    opmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
+    ELT = promote_type(T, dtype)
+    opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = apply(coeff, ops, bits)
@@ -171,11 +171,11 @@ function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, I
     dim = basis.dim
     
     if basis.kint == 0 || basis.kint == basis.lsize / 2
-        eltype = promote_type(T, dtype)
+        ELT = promote_type(T, dtype)
     else
-        eltype = ComplexF64
+        ELT = ComplexF64
     end
-    opmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
+    opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
     ks = 2π * basis.kint / basis.lsize
     orbits = basis.orbsize
 
@@ -230,8 +230,8 @@ function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing};
     covec = opsum.covec
     opvec = opsum.opvec
 
-    eltype = promote_type(T, dtype)
-    hmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim) 
+    ELT = promote_type(T, dtype)
+    hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim) 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = apply(covec[s], opvec[s], bits)
@@ -253,11 +253,11 @@ function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{Nothing, Int};
     orbits = basis.orbsize
 
     if basis.kint == 0 || basis.kint == basis.lsize / 2
-        eltype = promote_type(T, dtype)
+        ELT = promote_type(T, dtype)
     else
-        eltype = ComplexF64
+        ELT = ComplexF64
     end
-    hmat = sparsed ? spzeros(eltype, dim, dim) : zeros(eltype, dim, dim)
+    hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = apply(covec[s], opvec[s], bits)
