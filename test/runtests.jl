@@ -40,7 +40,7 @@ using SparseArrays
         @test state_full_str.basis.lsize == 3
         
         # Test state with different element types
-        state_complex = QState(3, 0x00006; num=2, type=ComplexF64)
+        state_complex = QState(3, 0x00006; num=2, ELT=ComplexF64)
         @test eltype(state_complex.vector) == ComplexF64
     end
 
