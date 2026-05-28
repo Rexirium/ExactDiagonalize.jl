@@ -9,7 +9,8 @@ let
     Δ = 1.0            # Interaction parameter
 
     # Initial state: Neel state
-    init = QState("1000000000"; num = N)
+    basis = SpinBasis(L; num = N)
+    init = QState(basis, "1000000000")
     
     # Build Hamiltonian terms for XXZ model
     opsum = OpSum(Float64)
@@ -21,7 +22,7 @@ let
     end
 
     # Observable: Z at last site
-    obs = ZObserver(L, init.basis)
+    obs = ZObserver(L, basis)
     
     # Time points for evolution
     ts = 0.0:0.05:10.0

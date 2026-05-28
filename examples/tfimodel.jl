@@ -7,7 +7,8 @@ let
     L = 12
     B = 0.5
 
-    init = QState(fill(:Dn, L))
+    basis = SpinBasis(L)
+    init = QState(basis, fill(:Dn, L))
 
     opsum = OpSum(Float64)
     for j in 1:L-1
@@ -16,7 +17,7 @@ let
     end
     opsum += -B, :X, L
 
-    obs = ZObserver(L ÷ 2, init.basis)
+    obs = ZObserver(L ÷ 2, basis)
 
     ts = 0.0:0.02:10.0
     @time timeEvolve(opsum, init, ts, obs, exact())

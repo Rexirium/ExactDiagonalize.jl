@@ -55,12 +55,12 @@ mutable struct OpSum{T <: Number, O <: AbstractOp}
     covec::Vector{T}
     opvec::Vector{Vector{O}}
 end
-OpSum(T::DataType, O) = OpSum{T, O}(T[], Vector{O}[])
-OpSum(T::DataType) = OpSum(T, get_optype(_systype[]))
-OpSum() = OpSum(Float64)
+OpSum(ELT::Type{<:Number}, OT::Type{<:AbstractOp}) = OpSum{ELT, OT}(ELT[], Vector{OT}[])
+OpSum(ELT::Type{<:Number}) = OpSum(ELT, get_optype(_systype[]))
+OpSum() = OpSum(Float64, get_optype(_systype[]))
 
 # Convert tuple to list of SpinOps
-function os2ops(os::Tuple, optype::DataType)
+function os2ops(os::Tuple, optype::Type{<:AbstractOp})
     len = length(os)
     ops = optype[]
     sizehint!(ops, len ÷ 2)
@@ -72,8 +72,9 @@ function os2ops(os::Tuple, optype::DataType)
 end
 
 # Construct OpSum from tuples and element type
-function OpSum(osvec::Vector{<:Tuple}, dtype::DataType)
-    covec = Vector{dtype}()
+OpSum(osvec::Vector{<:Tuple}) = OpSum(Float64, osvec)
+function OpSum(ELT::Type{<:Number}, osvec::Vector{<:Tuple})
+    covec = Vector{ELT}()
     optype = get_optype(_systype[])
     opvec = Vector{optype}[]
 
@@ -82,12 +83,12 @@ function OpSum(osvec::Vector{<:Tuple}, dtype::DataType)
         push!(covec, os[1])
         push!(opvec, ops)
     end
-    return OpSum{dtype, optype}(covec, opvec)
+    return OpSum{ELT, optype}(covec, opvec)
 end
 
-function Base.:+(opsum::OpSum{<:Number, O}, os::Tuple) where  O <: AbstractOp
+function Base.:+(opsum::OpSum{<:Number, OT}, os::Tuple) where  OT <: AbstractOp
     push!(opsum.covec, os[1])
-    push!(opsum.opvec, os2ops(os, O))
+    push!(opsum.opvec, os2ops(os, OT))
     opsum
 end
 
@@ -152,7 +153,7 @@ end
 
 # Build operator matrix in given basis
 function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
-    sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number, N}
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N}
     dim = basis.dim
     ELT = promote_type(T, dtype)
     opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
@@ -167,7 +168,7 @@ function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing
 end
 
 function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
-    sparsed::Bool=true, dtype::DataType=Float64) where {T <: Number}
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
     
     if basis.kint == 0 || basis.kint == basis.lsize / 2
@@ -224,7 +225,7 @@ Return either dense or sparse matrix controled by sparsed, default to be dense
 because `eigen` in LinearAlgebra does not support sparse matrix.
 """
 function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; 
-    sparsed::Bool=false, dtype::DataType=Float64) where {T <: Number, N}
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N}
     dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
@@ -244,7 +245,7 @@ function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing};
 end
 
 function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{Nothing, Int}; 
-    sparsed::Bool=false, dtype::DataType=Float64) where T <: Number
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where T <: Number
     dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec

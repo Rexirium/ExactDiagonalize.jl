@@ -20,27 +20,29 @@ using SparseArrays
     @testset "State Creation" begin
         # Test QState creation from integer bits
         bits = 0x0000a
-        state_num = QState(4, bits; num=2)
+        basis_num = SpinBasis(4; num=2)
+        state_num = QState(basis_num, bits)
         @test state_num.basis.num == count_ones(bits)
         @test length(state_num.vector) == 6  # Hilbert space dimension for 2 particles
         @test real(sum(abs.(state_num.vector))) ≈ 1.0  # Normalized
         
         # Test ull dimension State creation
-        state_full = QState(3, 0x00005)
+        basis_full = SpinBasis(3)
+        state_full = QState(basis_full, 0x00005)
         @test state_full.basis.lsize == 3
         @test length(state_full.vector) == 8
         @test state_full.vector[5 + 1] ≈ 1.0
         
         # Test QState creation from binary string
-        state_str = QState("1010"; num = 2)
+        state_str = QState(basis_num, "1010")
         @test state_str.basis.num == 2
         
         # Test full dimension State creation from binary string
-        state_full_str = QState("101")
+        state_full_str = QState(basis_full, "101")
         @test state_full_str.basis.lsize == 3
         
         # Test state with different element types
-        state_complex = QState(3, 0x00006; num=2, ELT=ComplexF64)
+        state_complex = QState(ComplexF64, basis_full, 0x00006)
         @test eltype(state_complex.vector) == ComplexF64
     end
 
@@ -97,7 +99,7 @@ using SparseArrays
             (1.0, :Z, 1, :Z, 2),
             (0.5, :X, 1)
         ]
-        ops_sum = OpSum(operators, ComplexF64)
+        ops_sum = OpSum(ComplexF64, operators)
         @test length(ops_sum.covec) == 2
         @test ops_sum.covec[1] ≈ 1.0
         @test ops_sum.covec[2] ≈ 0.5
@@ -140,12 +142,10 @@ using SparseArrays
         set_systype(:Spin)
         
         # Create simple transverse Ising model
-        operators = [
-            (1.0, :Z, 1, :Z, 2),
-            (0.5, :X, 1),
-            (0.5, :X, 2)
-        ]
-        ops_sum = OpSum(operators, ComplexF64)
+        ops_sum = OpSum(ComplexF64)
+        ops_sum += 1.0, :Z, 1, :Z, 2
+        ops_sum += 0.5, :X, 1
+        ops_sum += 0.5, :X, 2
         
         # Test spectrum with Full dimension SpinBasis
         basis = SpinBasis(2)
@@ -187,10 +187,11 @@ using SparseArrays
         operators = [
             (1.0, :X, 1, :X, 2)
         ]
-        ops_sum = OpSum(operators, ComplexF64)
+        ops_sum = OpSum(ComplexF64, operators)
         
         # Initial state
-        init_state = QState(2, 0x00000)
+        basis = SpinBasis(2)
+        init_state = QState(basis, 0x00000)
         
         # Evolve to short time
         tf = 0.1
@@ -206,9 +207,10 @@ using SparseArrays
         operators = [
             (1.0, :Z, 1, :Z, 2)
         ]
-        ops_sum = OpSum(operators, ComplexF64)
+        ops_sum = OpSum(ComplexF64, operators)
         
-        init_state = QState(2, 0x00000)
+        basis = SpinBasis(2)
+        init_state = QState(basis, 0x00000)
         ts = 0.00 : 0.01 : 0.02
         obs = ZObserver(1, init_state.basis)
         
@@ -225,9 +227,10 @@ using SparseArrays
         operators = [
             (1.0, :Z, 1, :Z, 2)
         ]
-        ops_sum = OpSum(operators, ComplexF64)
+        ops_sum = OpSum(ComplexF64, operators)
         
-        init_state = QState(2, 0x00001)
+        basis = SpinBasis(2)
+        init_state = QState(basis, 0x00001)
         ts = 0.00 : 0.01 : 0.02
         obs = XObserver(1, init_state.basis)
         

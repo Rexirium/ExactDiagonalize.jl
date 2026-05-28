@@ -118,19 +118,31 @@ struct QState{T <: Number, B <: AbstractBasis}
     vector::Vector{T}
 end
 
-function QState(lsize::Int, bits::UInt32; num = nothing, kint = nothing, ELT::DataType = ComplexF64)
-    basis = SpinBasis(lsize; num = num, kint = kint)
+statevec(basis::AbstractBasis, bits::UInt32) = statevec(ComplexF64, basis, bits)
+statevec(basis::AbstractBasis, lsize::Int, func::Function) = statevec(ComplexF64, basis, lsize, func)
+statevec(basis::AbstractBasis, symvec::Vector{Symbol}) = statevec(ComplexF64, basis, symvec)
+statevec(basis::AbstractBasis, statestr::String) = statevec(ComplexF64, basis, statestr)
+
+function statevec(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
     vector = zeros(ELT, basis.dim)
-    idx = first(findindex(basis, bits)) # find the index of the assigned state
+    idx = first(findindex(basis, bits))
     idx > basis.dim && error("bitstring not in basis!")
-    vector[idx] = one(ELT) # nonzero coefficient only for the assigned state
-    QState{ELT, SpinBasis}(basis, vector)
+    vector[idx] = one(ELT)
+    return vector
 end
 
-QState(statestr::String; num = nothing, kint = nothing, ELT::DataType = ComplexF64) = 
-    QState(length(statestr), parse(UInt32, statestr; base=2); num = num, kint = kint, ELT=ELT)
+function statevec(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, func::Function)
+    lsize <= 32 || error("System size too large for UInt32 representation")
+    bits = 0x00000
+    for j in 1 : lsize
+        bits |= bitDict[func(j)]  # Set bit for current symbol
+        bits <<= 0x01        # Shift left for next symbol
+    end
+    bits >>= 0x01
+    return statevec(ELT, basis, bits)
+end
 
-function QState(symvec::Vector{Symbol}; num = nothing, kint = nothing, ELT::DataType = ComplexF64)
+function statevec(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symbol})
     length(symvec) <= 32 || error("System size too large for UInt32 representation")
     bits = 0x00000
     for s in symvec
@@ -138,18 +150,36 @@ function QState(symvec::Vector{Symbol}; num = nothing, kint = nothing, ELT::Data
         bits <<= 0x01        # Shift left for next symbol
     end
     bits >>= 0x01
-    QState(length(symvec), bits; num = num, kint = kint, ELT=ELT)
+    return statevec(ELT, basis, bits)
 end
 
-function QState(lsize::Int, statefunc::Function; num=nothing, kint=nothing, ELT::DataType=ComplexF64)
-    lsize <= 32 || error("System size too large for UInt32 representation")
-    bits = 0x00000
-    for j in 1 : lsize
-        bits |= bitDict[statefunc(j)]  # Set bit for current symbol
-        bits <<= 0x01        # Shift left for next symbol
-    end
-    bits >>= 0x01
-    QState(lsize, bits; num = num, kint = kint, ELT = ELT)
+statevec(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String) = 
+    statevec(ELT, basis, parse(UInt32, statestr; base=2))
+
+
+QState(basis::AbstractBasis, bits::UInt32) = QState(ComplexF64, basis, bits)
+QState(basis::AbstractBasis, statestr::String) = QState(ComplexF64, basis, statestr)
+QState(basis::AbstractBasis, symvec::Vector{Symbol}) = QState(ComplexF64, basis, symvec)
+QState(basis::AbstractBasis, lsize::Int, func::Function) = QState(ComplexF64, basis, lsize, func)
+
+function QState(ELT::Type{<:Number}, basis::B, bits::UInt32) where B <: AbstractBasis
+    vector = statevec(ELT, basis, bits)
+    QState{ELT, B}(basis, vector)
+end
+
+function QState(ELT::Type{<:Number}, basis::B, statestr::String) where B <: AbstractBasis
+    vector = statevec(ELT, basis, statestr)
+    QState{ELT, B}(basis, vector)
+end
+
+function QState(ELT::Type{<:Number}, basis::B, symvec::Vector{Symbol}) where B <: AbstractBasis
+    vector = statevec(ELT, basis, symvec)
+    QState{ELT, B}(basis, vector)
+end
+
+function QState(ELT::Type{<:Number}, basis::B, lsize::Int, func::Function) where B <: AbstractBasis
+    vector = statevec(ELT, basis, lsize, func)
+    QState{ELT, B}(basis, vector)
 end
 
 

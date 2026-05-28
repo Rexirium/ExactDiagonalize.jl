@@ -11,8 +11,7 @@ let
 
     basis = SpinBasis(Ls)
 
-    init = QState(Ls, n -> isodd(n) ? :Up : :Dn; ELT = Float64)
-    initvec = init.vector
+    initvec = statevec(basis, Ls, n -> isodd(n) ? :Up : :Dn)
 
     opsum = OpSum(Float64)
     for j in 1 : Ls

@@ -53,7 +53,8 @@ L, N = 10, 1  # System size and particle number
 Δ = 1.0       # Interaction strength
 
 # Initial state: single excitation at site 1
-init = QState("1000000000"; num=1)
+basis = SpinBasis(L; num = N)
+init = QState(basis, "1000000000")
 
 # Build XY Hamiltonian
 opsum = OpSum(Float64)
@@ -65,7 +66,7 @@ for j in 1:L
 end
 
 # Define observable and time points
-obs = ZObserver(L, init.basis)
+obs = ZObserver(L, basis)
 ts = 0.0:0.05:10.0
 
 # Run time evolution

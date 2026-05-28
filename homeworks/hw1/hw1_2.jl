@@ -8,7 +8,8 @@ let
     Δ = 1.0         # Interaction parameter
 
     # Initial state: single up spin at site 1
-    init = QState("1000000000"; num = N)
+    basis = SpinBasis(L; num=N)
+    init = QState(basis, "1000000000")
     
     # Build Hamiltonian terms for XY model
     opsum = OpSum(Float64)
@@ -19,9 +20,9 @@ let
         opsum += (-1.0, :iY, j, :iY, nj)
     end
 
-    obs_exa = ZObserver(L, init.basis)
-    obs_ode = ZObserver(L, init.basis)
-    obs_spm = ZObserver(L, init.basis)
+    obs_exa = ZObserver(L, basis)
+    obs_ode = ZObserver(L, basis)
+    obs_spm = ZObserver(L, basis)
 
     ts_exa = 0.0:0.02:10.0
     ts_ode = 0.0:0.05:10.0
