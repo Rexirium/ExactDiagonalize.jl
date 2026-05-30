@@ -1,9 +1,9 @@
 import numpy as np
-import numpy.linalg as LA
 from functools import reduce
 from quspin.basis import spin_basis_1d
 from quspin.operators import hamiltonian
 from quspin.tools.measurements import ED_state_vs_time
+import time
 
 def spin1xy_spectrum(bases, lsize:int, J:float, h:float):
     # 构造哈密顿量
@@ -14,12 +14,14 @@ def spin1xy_spectrum(bases, lsize:int, J:float, h:float):
     static += [["z", [[h, i] for i in range(lsize)]]]
     
     if isinstance(bases, list) == False:
-        H = hamiltonian(static, [], basis=bases, dtype=np.float64)
+        H = hamiltonian(static, [], basis=bases, dtype=np.float64, 
+                check_herm=False, check_pcon=False, check_symm=False)
         return H.eigh()
-    
+
     Es, Us = [], []
     for basis in bases:
-        H = hamiltonian(static, [], basis=basis, dtype=np.float64)
+        H = hamiltonian(static, [], basis=basis, dtype=np.float64, 
+                check_herm=False, check_pcon=False, check_symm=False)
         E, U = H.eigh()
         Es.append(E)
         Us.append(U)
@@ -64,36 +66,52 @@ def make_initialstate(bases, lsize:int, statestr:str, s:int):
         psis.append(psi)
     
     return psis
+
+def ED_state_vs_time_1D(psi, E, ts):
+    psi_t = psi * np.exp( -(1j * E) * ts)
+    yield from psi_t
         
     
 # --- 主程序 ---
     
 if __name__=="__main__":
-    L = 8
+    L = 10
     J, h = 1.0, 0.5
     b = L // 2
     
-    basis = spin_basis_1d(L=L, S="1")
-    E, U = spin1xy_spectrum(basis, L, J, h)
+    basis_full = spin_basis_1d(L=L, S="1")
+    bases = [spin_basis_1d(L=L, S="1", Nup=n) for n in range(2*L +1)]
+    num_bases = len(bases)
+    
+    Es, Us = spin1xy_spectrum(bases, L, J, h)
     print("spectrum solved")
     
-    ts = np.geomspace(0.1, 1e7, 501)
+    ts = np.linspace(0.0, 100, 101)
     subA = tuple(range(b))
     
-    psis = ["NN", "NF", "SZ"]
+    entropies = np.zeros_like(ts)
+    psi0 = make_initialstate(bases, L, "NN", 1)
     
-    entropies = np.zeros((len(ts), 3))
-    for n, ss in enumerate(psis):
-        psi0 = make_initialstate(basis, L, ss, 1)
-        psi_t = ED_state_vs_time(psi0, E, U, ts, iterate=True)
+    tstart = time.perf_counter()
+    
+    psi_t_list = []
+    for n in range(num_bases):
+        if len(Es[n]) == 1:
+            psi_t = ED_state_vs_time_1D(psi0[n][0], Es[n][0], ts)
+        else: 
+            psi_t = ED_state_vs_time(psi0[n], Es[n], Us[n], ts, iterate=True)
+
+        psi_t_list.append(psi_t)
+
+    psi = np.zeros(pow(3, L), dtype=complex)
+    for i, psis in enumerate(zip(*psi_t_list)):
+        for n, basis in enumerate(bases):
+            psi[basis.states] = psis[n]
         
-        for i, psi in enumerate(psi_t):
-            entr = basis.ent_entropy(psi, sub_sys_A=subA, return_rdm=None, sparse_diag=True)
-            entropies[i, n] = entr["Sent_A"]
+        entr = basis_full.ent_entropy(psi, sub_sys_A=subA, return_rdm=None, sparse_diag=True)
+        entropies[i] = entr["Sent_A"]
     
-    np.savez("examples/manybodyscars/spin1xy_L=8.npz", ts = ts, entropies = entropies)
-
-
-
-    
+    tstop = time.perf_counter()
+    print("evolving time {}".format(tstop - tstart))
+    print(entropies)
     
