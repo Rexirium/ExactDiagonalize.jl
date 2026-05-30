@@ -1,6 +1,6 @@
 from spin1xy import *
 
-L = 10
+L = 8
 nt = 501
 J, h = 1.0, 0.5
 b = L // 2

@@ -43,8 +43,7 @@ def make_initialstate(bases, lsize:int, statestr:str, s:int):
             vs = np.kron(vm, vp)
         else:
             raise ValueError("s = 0 incompactible with Nematic Neel state")
-        
-        psi_full = reduce(np.kron, [vs] * (lsize // 2))
+    
     elif statestr == "NF":
         if s == 1:
             psi_full = reduce(np.kron, [vp] * lsize)
@@ -75,7 +74,7 @@ def ED_state_vs_time_1D(psi, E, ts):
 # --- 主程序 ---
     
 if __name__=="__main__":
-    L = 10
+    L = 8
     J, h = 1.0, 0.5
     b = L // 2
     
