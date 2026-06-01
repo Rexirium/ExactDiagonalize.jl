@@ -1,6 +1,6 @@
 from spin1xy import *
 
-Ls = [6, 8, 10, 12]
+Ls = [6, 8, 10, 12, 14, 16]
 nmax = 2
 J, h = 1.0, 1.0
 nt = 501
