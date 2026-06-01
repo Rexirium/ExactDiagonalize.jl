@@ -1,19 +1,14 @@
 from spin1xy import *
 
-Ls = [8, 10, 12, 14, 16]
+Ls = [6, 8, 10, 12]
 nmax = 2
 J, h = 1.0, 1.0
 nt = 501
 ts = np.geomspace(0.1, 1e8, nt)
 
-dts = np.geomspace(1e-2, 1e4, nt)
-profile = [11 if i < (nt // 5) else 11 for i in range(nt)]
-profile[-1] = 51
-ts_full = time_expand(ts, dts, profile)
 
 nbasis = nmax + 1
 entropies = np.zeros((nt, len(Ls)))
-entropies_full = np.zeros_like(ts_full)
 
 for il, L in enumerate(Ls):
     b = L // 2
@@ -27,9 +22,9 @@ for il, L in enumerate(Ls):
     psi_t_list = []
     for n in range(nbasis):
         if len(Es[n]) == 1:
-            psi_t = ED_state_vs_time_1D(psi0s[n][0], Es[n][0], ts_full, iterate=True)
+            psi_t = ED_state_vs_time_1D(psi0s[n][0], Es[n][0], ts, iterate=True)
         else:
-            psi_t = ED_state_vs_time(psi0[n], Es[n], Us[n], ts_full, iterate=True)
+            psi_t = ED_state_vs_time(psi0s[n], Es[n], Us[n], ts, iterate=True)
         psi_t_list.append(psi_t)
     
     # Combine the sym bases and combine the state vector
@@ -44,11 +39,11 @@ for il, L in enumerate(Ls):
         # update the combined
         for n, psi in enumerate(psis):
             psi_tot[inds[n]] = coeffs[n] * psi
+        # psi_tot /= sla.norm(psi_tot)
             
         entr = my_ent_entropy(basis_tot, 3, psi_tot, b, density=False)
-        entropies_full[i] = entr
+        entropies[i, il] = entr
         
-    entropies[:, il] = latetime_average(entropies_full, profile)
     print("L = {} entropy obtained".format(L))
 
 np.savez(f"examples/manybodyscars/spin1xy_nmax={nmax}_Lmax={Ls[-1]}_scar.npz", 

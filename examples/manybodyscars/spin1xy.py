@@ -89,17 +89,17 @@ def make_athermal_initial(basis, n:int, sign:int = 1):
 def make_initial(bases:list, nmax:int, sign:int = 1):
     psis = []
     coeffs = []
-    for (n, basis) in bases:
+    for (n, basis) in enumerate(bases):
         psi = make_athermal_initial(basis, n, sign=sign)
-        cc = 1 / 2**nmax * comb(nmax, n)
+        cc = np.sqrt(1 / 2**nmax * comb(nmax, n))
         psis.append(psi)
         coeffs.append(cc)
         
     return psis, coeffs
 
-def ED_state_vs_time_1D(psi, E, ts, iterable=True):
+def ED_state_vs_time_1D(psi, E, ts, iterate=True):
     psi_t = psi * np.exp( -(1j * E) * ts)
-    if iterable:
+    if iterate:
         yield from psi_t
     else:
         return psi_t
