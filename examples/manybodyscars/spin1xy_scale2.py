@@ -1,16 +1,16 @@
 from spin1xy import *
 
-Ls = [6, 8, 10, 12]
-nmax = 3
+Ls = [6, 8, 10]
 J, h = 1.0, 1.0
-nt = 101
+nt = 121
 ts = np.linspace(0.0, 120, nt)
 
 
-nbasis = nmax + 1
 entropies = np.zeros((nt, len(Ls)))
 
 for il, L in enumerate(Ls):
+    nbasis = L + 1
+    nmax = L
     b = L // 2
     bases = [spin_basis_1d(L=L, S="1", Nup = 2 * n) for n in range(nbasis)]
     Es, Us = spin1xy_spectrum(bases, L, J, h)
@@ -46,7 +46,7 @@ for il, L in enumerate(Ls):
         
     print("L = {} entropy obtained".format(L))
 
-np.savez(f"examples/manybodyscars/spin1xy_nmax={nmax}_Lmax={Ls[-1]}_scar_linear.npz", 
+np.savez(f"examples/manybodyscars/spin1xy_Lmax={Ls[-1]}_total_linear.npz", 
         Ls = np.array(Ls), ts = ts,
         params = np.array([J, h]),  
         entropies=entropies

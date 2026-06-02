@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-nmax, Lmax = 2, 18
-data = np.load(f"examples/manybodyscars/spin1xy_nmax={nmax}_Lmax={Lmax}_scar_linear.npz")
+Lmax = 10
+data = np.load(f"examples/manybodyscars/spin1xy_Lmax={Lmax}_total_linear.npz")
 
 h = data["params"][1]
 Ls = data["Ls"]
@@ -22,7 +22,7 @@ for n, L in enumerate(Ls):
     ax.plot(ts, entropies[:, n], label=rf"$L = {L}$")
 
 # ax.set_xscale("log")
-ax.set_ylim(0.0, np.log(2))
+# ax.set_ylim(0.0, np.log(2))
 ax.set(xlabel=r"$Jt$", ylabel=r"$S(L/2)$", title="Spin-1 XY chain entanglement entropy")
 ax.legend(title=rf"$h = {h}J$")
 plt.show()
