@@ -2,7 +2,7 @@ from spin1xy import *
 import matplotlib.pyplot as plt
 
 Ls = [6, 8, 10, 12]
-nmaxs = [6, 8, 10, 12]
+nmaxs = [6, 8, 10, 12, 14]
 
 entropies = np.zeros(len(Ls))
 
@@ -30,14 +30,16 @@ for il, L in enumerate(Ls):
     """
     
     basis = spin_basis_1d(L=L, S="1")
-    psi0 = make_initial()
-    entropies[il] = my_ent_entropy(basis_tot, 3, psi_tot, b, density=False)
+    psi0 = make_initial_total(basis, 2, sign=1)
+    entropies[il] = my_ent_entropy(basis.states, 3, psi0, b, density=False)
+    # entropies[il] = basis.ent_entropy(psi0, sub_sys_A=None, return_rdm=None, density=False)["Sent_A"]
         
     print("L = {} entropy obtained".format(L))
 
 fig, ax = plt.subplots()
 
 ax.plot(Ls, entropies)
+ax.set(xlabel="L", ylabel="Entropy")
 
 plt.show()
 

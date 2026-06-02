@@ -76,7 +76,7 @@ def make_initialstate(bases, lsize:int, statestr:str, s:int):
 def make_athermal_initial(basis, n:int, sign:int = 1):
     lsize = basis.L
     psi = np.zeros(basis.Ns)
-    combs = np.array(list(combinations(np.arange(lsize), n)))
+    combs = np.array(list(combinations(np.arange(lsize), n)), dtype=int)
     
     states = np.sum(2 * np.pow(3, combs), axis=1)
     for j, stateint in enumerate(states):
@@ -96,6 +96,25 @@ def make_initial(bases:list, nmax:int, sign:int = 1):
         coeffs.append(cc)
         
     return psis, coeffs
+
+def make_initial_total(basis, nmax:int=None, sign:int = 1):
+    lsize = basis.L
+    psi = np.zeros(basis.Ns, dtype=complex)
+    
+    if nmax is None:
+        nmax = basis.L
+
+    for n in range(nmax + 1):
+        combs = np.array(list(combinations(np.arange(lsize), n)), dtype=int)
+        states = np.sum(2 * np.pow(3, combs), axis=1)
+        
+        for j, stateint in enumerate(states):
+            idx = basis.Ns - 1 - stateint
+            phase = np.abs(lsize - np.sum(combs[j, :], dtype=int))
+            coeff = np.sqrt(1 / 2**lsize * comb(lsize, n))
+            psi[idx] = np.pow(-1, phase) * sign * coeff
+        
+    return psi / sla.norm(psi)
 
 def ED_state_vs_time_1D(psi, E, ts, iterate=True):
     psi_t = psi * np.exp( -(1j * E) * ts)
