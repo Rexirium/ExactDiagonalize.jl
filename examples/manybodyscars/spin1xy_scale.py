@@ -1,14 +1,14 @@
 from spin1xy import *
 
-Ls = [10, 16, 24, 32]
-Stot = 2
+Ls = [6 + 2*n for n in range(7)]
+Stot = 1
 J, h = 1.0, 1.0
-nt = 501
-ts = np.geomspace(0.1, 1e8, nt)
+nt = 1201
+ts = np.linspace(0.0, 120.0, nt)
 
-dts = np.geomspace(1e-2, 1e4, nt)
-profile = [11 if i < (nt // 5) else 11 for i in range(nt)]
-profile[-1] = 51
+dts = 2e-2 * np.ones(nt)
+profile = [11 for _ in range(nt)]
+profile[-1] = 101
 ts_full = time_expand(ts, dts, profile)
 
 entropies = np.zeros((nt, len(Ls)))

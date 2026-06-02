@@ -30,7 +30,7 @@ for il, L in enumerate(Ls):
     """
     
     basis = spin_basis_1d(L=L, S="1")
-    psi0 = make_initial_total(basis, 2, sign=1)
+    psi0 = make_initial_total(basis, sign=1)
     entropies[il] = my_ent_entropy(basis.states, 3, psi0, b, density=False)
     # entropies[il] = basis.ent_entropy(psi0, sub_sys_A=None, return_rdm=None, density=False)["Sent_A"]
         

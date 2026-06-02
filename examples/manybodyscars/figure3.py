@@ -2,7 +2,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 
-data1 = np.load("examples/manybodyscars/spin1xy_nmax=2_Lmax=18_scar_linear.npz")
+data1 = np.load("examples/manybodyscars/spin1xy_Sz=1_Lmax=18.npz")
 
 spinxy_ts = data1["entropies"][:, -1]
 ts = data1["ts"]
@@ -29,12 +29,14 @@ ys_pxp = k_pxp * Lx + b_pxp
 ys_sxy = k_sxy * Lx + b_sxy
 
 plt.rcParams.update({
-    "text.usetex": True,
+    #"text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Times New Roman"], 
     "font.size": 14, 
     "xtick.direction": "in",
-    "ytick.direction": "in"
+    "ytick.direction": "in", 
+    "legend.frameon": False,
+    "legend.edgecolor": 'none'
 })
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 5))
@@ -46,6 +48,7 @@ axs[0].set(
 )
 axs[0].legend()
 
+
 axs[1].scatter(Ls, spinxy_Ls, label="spin-1 XY data")
 axs[1].plot(Lx, ys_sxy, label="spin-1 XY fit")
 
@@ -55,10 +58,21 @@ axs[1].plot(Lx, ys_pxp, label="static PXP fit")
 axs[1].set(
     xlabel=r"$L$", ylabel=r"$S(L/2)$"
 )
-axs[1].legend()
+axs[1].legend(title=r"final time $t = 10^{5}$")
+
+for ax, label in zip(axs, ["a", "b"]):
+    ax.text(
+        -0.08, 1.07, label,
+        transform=ax.transAxes,
+        fontsize=20,
+        fontweight='bold',
+        va='top',
+        ha='left'
+    )
+
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.2)
-
-plt.savefig("examples/manybodyscars/figure3.png")
+# plt.show()
+plt.savefig("examples/manybodyscars/figure3_else.png")
 
 
