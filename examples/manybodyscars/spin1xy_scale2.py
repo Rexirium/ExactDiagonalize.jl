@@ -28,12 +28,12 @@ for il, L in enumerate(Ls):
         psi_t_list.append(psi_t)
     
     # Combine the sym bases and combine the state vector
-    basis_tot = np.concatenate([bases[n].states for n in range(nbasis)])
-    dim = basis_tot.size
+    basis_tot = spin_basis_1d(L=L, S="1", Nup=[2*n for n in range(nbasis)])
+    dim = basis_tot.Ns
     psi_tot = np.zeros(dim, dtype=complex)
-    # indices to update psi in doing the time evolution
-    split_points = np.cumsum([bases[n].Ns for n in range(nbasis - 1)])
-    inds = np.split(np.arange(dim), split_points)
+    
+    # return indices of subspace states to the total state
+    inds = merge_basis_index(bases)
     
     for i, psis in enumerate(zip(*psi_t_list)):
         # update the combined
@@ -41,7 +41,7 @@ for il, L in enumerate(Ls):
             psi_tot[inds[n]] = coeffs[n] * psi
         # psi_tot /= sla.norm(psi_tot)
             
-        entr = my_ent_entropy(basis_tot, 3, psi_tot, b, density=False)
+        entr = basis_tot.my_ent_entropy(psi_tot, b, density=False)
         entropies[i, il] = entr
         
     print("L = {} entropy obtained".format(L))

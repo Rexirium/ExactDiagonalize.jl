@@ -27,7 +27,7 @@ for n, L in enumerate(Ls):
     
     subA = tuple(range(L // 2))
     for i, psi in enumerate(psi_t):
-        entr = my_ent_entropy(basis.states, 3, psi, b, density=False)
+        entr = basis.my_ent_entropy(psi, b, density=False)
         entropies_full[i] = entr
         
     entropies[:, n] = latetime_average(entropies_full, profile)

@@ -34,6 +34,6 @@ for k, ss in enumerate(psis):
         for n, basis in enumerate(bases):
             psi[basis.states] = psis[n]
         
-        entropies[i, k] = my_ent_entropy(basis.states, 3, psi, b, density=False)
+        entropies[i, k] = basis.my_ent_entropy(psi, b, density=False)
     
 np.savez(f"examples/manybodyscars/spin1xy_L={L}.npz", ts = ts, entropies = entropies)

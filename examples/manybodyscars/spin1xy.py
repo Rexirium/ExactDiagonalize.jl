@@ -7,6 +7,7 @@ from itertools import combinations
 from quspin.basis import spin_basis_1d
 from quspin.operators import hamiltonian
 from quspin.tools.measurements import ED_state_vs_time
+from utils import *
 import time
 
 rng = np.random.default_rng()
@@ -116,57 +117,6 @@ def make_initial_total(basis, nmax:int=None, sign:int = 1):
         
     return psi / sla.norm(psi)
 
-def ED_state_vs_time_1D(psi, E, ts, iterate=True):
-    psi_t = psi * np.exp( -(1j * E) * ts)
-    if iterate:
-        yield from psi_t
-    else:
-        return psi_t
-    
-def time_expand(ts:np.ndarray, dts, profile:list):
-    ts_full = np.zeros(np.sum(profile))
-    idx = 0
-    for t, dt, n in zip(ts, dts, profile):
-        ts_full[idx : idx + n] = np.linspace(t - dt, t + dt, n)
-        idx += n
-    
-    return ts_full
-
-def latetime_average(arr:np.ndarray, profile:list):
-    res = np.zeros(len(profile))
-    idx = 0
-    for i, n in enumerate(profile):
-        res[i] = np.sum(arr[idx : idx + n]) / n
-        idx += n
-    
-    return res   
-
-def my_ent_entropy(basis:np.ndarray, sps:int, psi:np.ndarray, b:int, density:bool=True):
-    # 3进制表示特有
-    pow_sps = np.pow(sps, b)
-     # 1. 向量化计算所有态的左边和右边部分
-    left_parts = basis // pow_sps
-    right_parts = basis % pow_sps
-    
-    # 2. 获取去重后的状态，以及每个原始状态在新列表中的索引
-    # l_idx 和 r_idx 的长度与 basis_states 完全一致
-    lstates, l_idx = np.unique(left_parts, return_inverse=True)
-    rstates, r_idx = np.unique(right_parts, return_inverse=True)
-    
-    mat = np.zeros((lstates.size, rstates.size), dtype=psi.dtype)
-    # 4. NumPy 高级索引 (Fancy Indexing)，一步到位完成所有数据的映射
-    mat[l_idx, r_idx] = psi
-    
-    S = sla.svdvals(mat, overwrite_a=True, check_finite=False)
-    # S = svds(mat, k = min(*mat.shape)-1, tol= 1e-12, return_singular_vectors=False)
-    ps = S * S
-    ps = ps[ps > 1e-33]
-    
-    if density:
-        return - np.sum(ps * np.log(ps)) / b
-    else:
-        return - np.sum(ps * np.log(ps))
-
       
 # --- 主程序 ---
     
@@ -201,7 +151,7 @@ if __name__=="__main__":
     entropies_full = np.zeros_like(ts_full)
     for i, psi in enumerate(psi_t):
         # entr = basis.ent_entropy(psi, sub_sys_A=subA, return_rdm=None)["Sent_A"]
-        entropies_full[i] = my_ent_entropy(basis.states, basis.sps, psi, b, density=False)
+        entropies_full[i] = basis.my_ent_entropy(psi, b, density=False)
     stop = time.perf_counter()
     print("Entropy calc time {}".format(stop - start))
       
