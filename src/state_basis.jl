@@ -197,3 +197,41 @@ function Base.:+(x::QState, y::QState)
      x.basis == y.basis || error("Basis mismatch! Cannot add different bases.")
     return QState(y.basis, x.vector + y.vector)
 end
+
+function matrixize(psi::QState, b::Int)
+    basis = psi.basis
+    shift = basis.lsize - b
+
+    left_parts = basis.bitsvec .>> shift
+    right_parts = basis.bitsvec .& ((0x00001 << shift) - 0x00001)
+
+    lbits = unique(left_parts)
+    rbits = unique(right_parts)
+    M, N = length(lbits), length(rbits)
+
+    ldict = Dict(v => i for (i, v) in enumerate(lbits))
+    rdict = Dict(v => i for (i, v) in enumerate(rbits))
+
+    mat = zeros(eltype(psi.vector), M, N)
+    @inbounds for i in 1 : basis.dim
+        lidx = ldict[left_parts[i]]
+        ridx = rdict[right_parts[i]]
+        mat[lidx, ridx] = psi.vector[i]
+    end
+    return mat
+end
+
+function ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2)
+    (b <= 0 || b >= psi.basis.lsize) && return 0.0
+    mat = matrixize(psi, b)
+    Σ = svdvals!(mat)
+    SvN = 0.0
+
+    @inbounds for s in Σ
+        p = s*s
+        if p > 1e-300
+            SvN -= p * log(p)
+        end
+    end
+    return SvN
+end

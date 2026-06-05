@@ -1,7 +1,6 @@
-from quspin.operators import hamiltonian
+from functools import lru_cache
 from quspin.basis.user import user_basis  # Hilbert space user basis
 from quspin.basis.user import (
-    next_state_sig_32,
     pre_check_state_sig_32,
     op_sig_32,
     map_sig_32,
@@ -9,6 +8,7 @@ from quspin.basis.user import (
 from numba import carray, cfunc  # numba helper functions
 from numba import uint32, int32  # numba data types
 import numpy as np
+from utils import my_ent_entropy
 
 #
 ######  function to call when applying operators
@@ -107,29 +107,45 @@ def parity(x, N, sign_ptr, args):
     out <<= s
     return out
 
-def pxp_basis_1d(N:int, a=1, kblock=None, pblock=None):
+def pxp_basis_1d(N:int, a:int=1, kblock=None, pblock=None):
     op_args = np.array([], dtype=np.uint32)
     T_args = np.array([a, (1 << N) - 1], dtype=np.uint32)
     P_args = np.array([N - 1], dtype=np.uint32)
 
-    if kblock is None and pblock is None:
-        maps = dict()
-    elif kblock is not None and pblock is None:
-        maps = dict(
-            T_block = (translation, N, 0, T_args)
-        )
-    elif kblock is None and pblock is not None:
-        maps = dict(
-            P_block = (parity, 2, 0, P_args)
-        )
-    else:
-        maps = dict(
-            T_block=(translation, N, 0, T_args),
-            P_block=(parity, 2, 0, P_args),
-        )
+    maps = dict()
+    arrays_to_keep = [op_args]
+    est_size = int(1.618 ** N)
+    # 1. 挂载平移对称性 (kblock)
+    if kblock is not None:
+        if not (0 <= kblock < N):
+            raise ValueError(f"kblock must be an integer between 0 and {N-1}")
+        
+        T_args = np.array([a, (1 << N) - 1], dtype=np.uint32)
+        
+        # 传入的格式: (映射函数, 周期, 量子数/扇区, 参数数组)
+        # 本征值为 exp(-i * 2pi * kblock / N)
+        maps["T_block"] = (translation, N, kblock, T_args)
+        arrays_to_keep.append(T_args)
+        est_size = est_size * a // N + N
+
+    # 2. 挂载宇称对称性 (pblock)
+    if pblock is not None:
+        if pblock not in [1, -1]:
+            raise ValueError("pblock must be either 1 (even parity) or -1 (odd parity)")
+        
+        P_args = np.array([N - 1], dtype=np.uint32)
+        # 将用户友好的 1 和 -1 转换为 QuSpin user_basis 所需的 q
+        # 本征值为 exp(-i * 2pi * q / 2) -> q=0 得 +1, q=1 得 -1
+        q_parity = 0 if pblock == 1 else 1
+        
+        maps["P_block"] = (parity, 2, q_parity, P_args)
+        arrays_to_keep.append(P_args)
+        est_size = est_size // 2 + 2
+    
         
     op_dict = dict(op=op, op_args=op_args)
     check_state = (pre_check_state, None)
+    est_size = max(128, int(1.2 * est_size))
     # 4. 构建 user_basis
     basis = user_basis(
         np.uint32,
@@ -138,19 +154,33 @@ def pxp_basis_1d(N:int, a=1, kblock=None, pblock=None):
         allowed_ops=set("xyz"),
         sps=2,
         pre_check_state=check_state,
-        Ns_block_est=int(300000 * (2**N / 2**14)), # 动态估算内存分配量
+        Ns_block_est=est_size, # 动态估算内存分配量
         **maps,
     )
      # 因为 Numba 底层使用指针访问这些数组，如果对象在函数结束时被释放，会导致 Segment Fault (内存越界)。
-    basis._op_args = op_args
-    basis._T_args = T_args
-    basis._P_args = P_args
+    basis._kept_arrays = arrays_to_keep
     
     return basis
 
+@lru_cache(maxsize=None)
+def fibonacci(n:int):
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 1
+    return fibonacci(n - 2) + fibonacci(n - 1)
+
+user_basis.my_ent_entropy = my_ent_entropy
 ##############################################################################
 ##############################################################################
 
 if __name__ == '__main__':
-    basis = pxp_basis_1d(6, kblock=0, pblock=1)
+    N = 18
+    basis = pxp_basis_1d(N)
     print(basis)
+    Ns_size = int(1.2 * 1.618 ** N)
+    print(f"estimated size without symmetry {int(Ns_size)}")
+    Ns_size = Ns_size // N + N
+    Ns_size = Ns_size // 2 + 2
+    Ns_size = int(1.2 * Ns_size)
+    print(f"estimated size with symmetry {Ns_size}")

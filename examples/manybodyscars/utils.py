@@ -1,6 +1,7 @@
 import numpy as np
-from quspin.basis import spin_basis_1d
+import scipy.sparse as spp
 from scipy.linalg import svdvals
+from quspin.basis import spin_basis_1d
 
 def merge_basis_index(bases:list[spin_basis_1d]):
     
@@ -18,31 +19,55 @@ def merge_basis_index(bases:list[spin_basis_1d]):
     return basis_indices
 
 
-def my_ent_entropy(self, psi:np.ndarray, b:int, density:bool=True):
+def my_ent_entropy(self, psi, b=None, density:bool=True):
+    
+    if hasattr(self, "blocks") and len(self.blocks) > 0:
+        raise ValueError(
+            "Alert! Entanglement entropy CANNOT be calculated upon basis with spatial symmetry(kblock/pblock). \n"
+            "Please first use basis.project_from() to lift the state into the full space"
+            "And then use symmetry-free basis to run this function! "
+        )
+    
+    if b is None:
+        b = self.N // 2
     # 3进制表示特有
-    pow_sps = np.pow(self.sps, b)
-     # 1. 向量化计算所有态的左边和右边部分
-    left_parts = self.states // pow_sps
-    right_parts = self.states % pow_sps
+    shift = self.N - b
+    if self.sps == 2:
+        left_parts = self.states >> shift
+        right_parts = self.states & ((1 << shift) - 1)
+    else:
+        pow_sps = np.pow(self.sps, shift)
+        # 1. 向量化计算所有态的左边和右边部分
+        left_parts = self.states // pow_sps
+        right_parts = self.states % pow_sps
     
     # 2. 获取去重后的状态，以及每个原始状态在新列表中的索引
     # l_idx 和 r_idx 的长度与 basis_states 完全一致
     lstates, l_idx = np.unique(left_parts, return_inverse=True)
     rstates, r_idx = np.unique(right_parts, return_inverse=True)
     
+    
     mat = np.zeros((lstates.size, rstates.size), dtype=psi.dtype)
-    # 4. NumPy 高级索引 (Fancy Indexing)，一步到位完成所有数据的映射
-    mat[l_idx, r_idx] = psi
+     # 4. 根据 psi 的类型进行智能映射 (支持 Sparse 和 Dense)
+    # ==============================================================
+    if spp.issparse(psi):
+        # 转换为 COO 格式，便于直接提取 "非零元素的坐标和数据"
+        psi_coo = psi.tocoo()
+        # 这里仅提取出非零态的左右子空间坐标进行赋值，极其高效！
+        mat[l_idx[psi_coo.row], r_idx[psi_coo.row]] = psi_coo.data
+    else:
+        # np.ravel 确保: 即便传入的是 (N, 1) 的 dense array，也会被展平为 (N,)
+        # 从而匹配 mat[l_idx, r_idx] 所需的一维形态
+        mat[l_idx, r_idx] = np.ravel(psi)
+    # ==============================================================
     
     S = svdvals(mat, overwrite_a=True, check_finite=False)
     # S = svds(mat, k = min(*mat.shape)-1, tol= 1e-12, return_singular_vectors=False)
     ps = S * S
-    ps = ps[ps > 1e-33]
+    ps = ps[ps > 1e-300]
     
-    if density:
-        return - np.sum(ps * np.log(ps)) / b
-    else:
-        return - np.sum(ps * np.log(ps))
+    entropy = -np.sum(ps * np.log(ps))
+    return entropy / b if density else entropy
 
 spin_basis_1d.my_ent_entropy = my_ent_entropy
 
@@ -70,3 +95,27 @@ def latetime_average(arr:np.ndarray, profile:list):
         idx += n
     
     return res
+
+if __name__ == "__main__":
+    rng = np.random.default_rng()
+    from numpy.linalg import norm
+    
+    basis = spin_basis_1d(L=10, Nup=5)
+    basis_full = spin_basis_1d(L=10)
+    b = 2
+    
+    psi = rng.normal(size = basis.Ns)
+    psi /= norm(psi)
+    psi_full = basis.project_from(psi, sparse=True)
+    
+
+    subA = tuple(range(b))
+    myent = basis.my_ent_entropy(psi, b, density=False)
+    myent_full = basis_full.my_ent_entropy(psi_full, b, density=False)
+    qsent = basis.ent_entropy(psi, subA, density=False)
+    qsent_full = basis_full.ent_entropy(psi_full, subA, density=False)
+    
+    print(f"my entropy is {myent}")
+    print(f"my entropy full is {myent_full}")
+    print(f"quspin entropy is {qsent["Sent_A"]}")
+    print(f"quspin entropy full is {qsent_full["Sent_A"]}")
