@@ -198,8 +198,7 @@ function Base.:+(x::QState, y::QState)
     return QState(y.basis, x.vector + y.vector)
 end
 
-function matrixize(psi::QState, b::Int)
-    basis = psi.basis
+function matrixize(basis::AbstractBasis, statevec::Vector{T}, b::Int) where T <: Number
     shift = basis.lsize - b
 
     left_parts = basis.bitsvec .>> shift
@@ -212,18 +211,33 @@ function matrixize(psi::QState, b::Int)
     ldict = Dict(v => i for (i, v) in enumerate(lbits))
     rdict = Dict(v => i for (i, v) in enumerate(rbits))
 
-    mat = zeros(eltype(psi.vector), M, N)
+    mat = zeros(T, M, N)
     @inbounds for i in 1 : basis.dim
         lidx = ldict[left_parts[i]]
         ridx = rdict[right_parts[i]]
-        mat[lidx, ridx] = psi.vector[i]
+        mat[lidx, ridx] = statevec[i]
     end
     return mat
 end
 
+function ent_entropy(basis::AbstractBasis, statevec::Vector{T}, b::Int) where T <: Number
+    (b <= 0 || b >= basis.lsize) && return 0.0
+    mat = matrixize(basis, statevec, b)
+    Σ = svdvals!(mat)
+    SvN = 0.0
+
+    @inbounds for s in Σ
+        p = s*s
+        if p > 1e-300
+            SvN -= p * log(p)
+        end
+    end
+    return SvN
+end
+
 function ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2)
     (b <= 0 || b >= psi.basis.lsize) && return 0.0
-    mat = matrixize(psi, b)
+    mat = matrixize(psi.basis, psi.vector, b)
     Σ = svdvals!(mat)
     SvN = 0.0
 
