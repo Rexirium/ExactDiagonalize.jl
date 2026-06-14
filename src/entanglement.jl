@@ -24,7 +24,7 @@ function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Numb
     return mat
 end
 
-function ent_entropy(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
+function ent_entropy(basis::AbstractBasis, psi::Vector, b::Int=basis.lsize ÷ 2)
     (b <= 0 || b >= basis.lsize) && return 0.0
     mat = matrixize(basis, psi, b)
     Σ = svdvals!(mat)
@@ -32,24 +32,11 @@ function ent_entropy(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Nu
 
     @inbounds for s in Σ
         p = s*s
-        if p > 1e-300
+        if 1e-300 < p <= 1.0
             SvN -= p * log(p)
         end
     end
     return SvN
 end
 
-function ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2)
-    (b <= 0 || b >= psi.basis.lsize) && return 0.0
-    mat = matrixize(psi.basis, psi.vector, b)
-    Σ = svdvals!(mat)
-    SvN = 0.0
-
-    @inbounds for s in Σ
-        p = s*s
-        if p > 1e-300
-            SvN -= p * log(p)
-        end
-    end
-    return SvN
-end
+ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2) = ent_entropy(psi.basis, psi.vector, b)

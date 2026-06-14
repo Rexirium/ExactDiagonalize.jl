@@ -148,7 +148,7 @@ function apply(coef::Number, ops::Vector{<:AbstractOp}, bits::UInt32)
 end
 
 # Build operator matrix in given basis
-function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
     sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N}
     dim = basis.dim
     ELT = promote_type(T, dtype)
@@ -163,7 +163,7 @@ function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing
     return opmat
 end
 
-function op2mat(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
     sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
     
@@ -190,20 +190,20 @@ end
 
 # Apply operator(s) to a state and return new state
 function apply(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = op2mat(coeff, ops, psi.basis)
+    opmat = matrixform(coeff, ops, psi.basis)
     vector = opmat * psi.vector
     return QState(psi.basis, vector)
 end
 
 # In-place apply operator(s) to a state
 function apply!(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = op2mat(coeff, ops, psi.basis)
+    opmat = matrixform(coeff, ops, psi.basis)
     lmul!(opmat, psi.vector)
 end
 
 # Compute expectation value of operator(s) in a state
 function expected(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = op2mat(coeff, ops, psi.basis)
+    opmat = matrixform(coeff, ops, psi.basis)
     v = psi.vector
     return real(dot(v, opmat, v))
 end
@@ -211,7 +211,7 @@ end
 # Compute ⟨x|O|y⟩ for two states and operator(s)
 function LinearAlgebra.dot(x::QState, ops::Tuple{Number, Vector{<:AbstractOp}}, y::QState)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
-    opmat = op2mat(ops[1], ops[2], y.basis)
+    opmat = matrixform(ops[1], ops[2], y.basis)
     return dot(x.vector, opmat, y.vector)
 end
 

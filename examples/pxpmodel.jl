@@ -7,7 +7,7 @@ using CairoMakie
 let
     set_systype(:Spin)
     Ls = 12
-    g = - 0.1
+    g = -0.1
 
     basis = SpinBasis(Ls)
 
@@ -15,12 +15,13 @@ let
 
     opsum = OpSum(Float64)
     for j in 1 : Ls
+        jpprev = mod1(j - 2, Ls)
         jprev = mod1(j - 1, Ls)
         jpost = mod1(j + 1, Ls)
+        jppost = mod1(j + 2, Ls)
         opsum += 1.0, :Pdn, jprev, :X, j, :Pdn, jpost
-        opsum += g, :Z, j
-        opsum += g, :X, j, :X, jpost
-        opsum += -g, :iY, j, :iY, jpost
+        opsum += g, :Pdn, jprev, :X, j, :Pdn, jpost, :Z, jppost
+        opsum += g, :Z, jpprev, :Pdn, jprev, :X, j, :Pdn, jpost
     end
 
     eigenergies, eigstates = spectrum(opsum, basis; retvecs=true)
@@ -31,12 +32,12 @@ let
     end
 
     overlaps = abs2.(transpose(eigstates) * initvec)
-    # mask = entropies .> 0
+    mask = entropies .> 0
     
     fig = Figure()
     ax = Axis(fig[1, 1], title="Entropy vs energy", yscale=log10, 
         xlabel=L"E_n", ylabel=L"S(L/2)",  
-        limits=(nothing, (1e-2, 1e1)))
+        limits=(nothing, (1e-20, 1e1)))
 
     scatter!(ax, eigenergies, entropies)
     fig
