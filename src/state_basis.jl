@@ -118,12 +118,12 @@ struct QState{T <: Number, B <: AbstractBasis}
     vector::Vector{T}
 end
 
-statevec(basis::AbstractBasis, bits::UInt32) = statevec(ComplexF64, basis, bits)
-statevec(basis::AbstractBasis, lsize::Int, func::Function) = statevec(ComplexF64, basis, lsize, func)
-statevec(basis::AbstractBasis, symvec::Vector{Symbol}) = statevec(ComplexF64, basis, symvec)
-statevec(basis::AbstractBasis, statestr::String) = statevec(ComplexF64, basis, statestr)
+product_state(basis::AbstractBasis, bits::UInt32) = product_state(ComplexF64, basis, bits)
+product_state(basis::AbstractBasis, lsize::Int, func::Function) = product_state(ComplexF64, basis, lsize, func)
+product_state(basis::AbstractBasis, symvec::Vector{Symbol}) = product_state(ComplexF64, basis, symvec)
+product_state(basis::AbstractBasis, statestr::String) = product_state(ComplexF64, basis, statestr)
 
-function statevec(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
+function product_state(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
     vector = zeros(ELT, basis.dim)
     idx = first(findindex(basis, bits))
     idx > basis.dim && error("bitstring not in basis!")
@@ -131,7 +131,7 @@ function statevec(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
     return vector
 end
 
-function statevec(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, func::Function)
+function product_state(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, func::Function)
     lsize <= 32 || error("System size too large for UInt32 representation")
     bits = 0x00000
     for j in 1 : lsize
@@ -139,10 +139,10 @@ function statevec(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, func::F
         bits <<= 0x01        # Shift left for next symbol
     end
     bits >>= 0x01
-    return statevec(ELT, basis, bits)
+    return product_state(ELT, basis, bits)
 end
 
-function statevec(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symbol})
+function product_state(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symbol})
     length(symvec) <= 32 || error("System size too large for UInt32 representation")
     bits = 0x00000
     for s in symvec
@@ -150,11 +150,11 @@ function statevec(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symb
         bits <<= 0x01        # Shift left for next symbol
     end
     bits >>= 0x01
-    return statevec(ELT, basis, bits)
+    return product_state(ELT, basis, bits)
 end
 
-statevec(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String) = 
-    statevec(ELT, basis, parse(UInt32, statestr; base=2))
+product_state(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String) = 
+    product_state(ELT, basis, parse(UInt32, statestr; base=2))
 
 
 QState(basis::AbstractBasis, bits::UInt32) = QState(ComplexF64, basis, bits)
@@ -163,22 +163,22 @@ QState(basis::AbstractBasis, symvec::Vector{Symbol}) = QState(ComplexF64, basis,
 QState(basis::AbstractBasis, lsize::Int, func::Function) = QState(ComplexF64, basis, lsize, func)
 
 function QState(ELT::Type{<:Number}, basis::B, bits::UInt32) where B <: AbstractBasis
-    vector = statevec(ELT, basis, bits)
+    vector = product_state(ELT, basis, bits)
     QState{ELT, B}(basis, vector)
 end
 
 function QState(ELT::Type{<:Number}, basis::B, statestr::String) where B <: AbstractBasis
-    vector = statevec(ELT, basis, statestr)
+    vector = product_state(ELT, basis, statestr)
     QState{ELT, B}(basis, vector)
 end
 
 function QState(ELT::Type{<:Number}, basis::B, symvec::Vector{Symbol}) where B <: AbstractBasis
-    vector = statevec(ELT, basis, symvec)
+    vector = product_state(ELT, basis, symvec)
     QState{ELT, B}(basis, vector)
 end
 
 function QState(ELT::Type{<:Number}, basis::B, lsize::Int, func::Function) where B <: AbstractBasis
-    vector = statevec(ELT, basis, lsize, func)
+    vector = product_state(ELT, basis, lsize, func)
     QState{ELT, B}(basis, vector)
 end
 
@@ -198,7 +198,7 @@ function Base.:+(x::QState, y::QState)
     return QState(y.basis, x.vector + y.vector)
 end
 
-function matrixize(basis::AbstractBasis, statevec::Vector{T}, b::Int) where T <: Number
+function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
     shift = basis.lsize - b
 
     left_parts = basis.bitsvec .>> shift
@@ -215,14 +215,14 @@ function matrixize(basis::AbstractBasis, statevec::Vector{T}, b::Int) where T <:
     @inbounds for i in 1 : basis.dim
         lidx = ldict[left_parts[i]]
         ridx = rdict[right_parts[i]]
-        mat[lidx, ridx] = statevec[i]
+        mat[lidx, ridx] = psi[i]
     end
     return mat
 end
 
-function ent_entropy(basis::AbstractBasis, statevec::Vector{T}, b::Int) where T <: Number
+function ent_entropy(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
     (b <= 0 || b >= basis.lsize) && return 0.0
-    mat = matrixize(basis, statevec, b)
+    mat = matrixize(basis, psi, b)
     Σ = svdvals!(mat)
     SvN = 0.0
 
