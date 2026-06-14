@@ -7,7 +7,7 @@ using CairoMakie
 let
     set_systype(:Spin)
     Ls = 12
-    g = -0.1
+    g = 0.05
 
     basis = SpinBasis(Ls)
 
@@ -19,9 +19,11 @@ let
         jprev = mod1(j - 1, Ls)
         jpost = mod1(j + 1, Ls)
         jppost = mod1(j + 2, Ls)
+
         opsum += 1.0, :Pdn, jprev, :X, j, :Pdn, jpost
-        # opsum += g, :Pdn, jprev, :X, j, :Pdn, jpost, :Z, jppost
-        # opsum += g, :Z, jpprev, :Pdn, jprev, :X, j, :Pdn, jpost
+        #opsum += g, :X, j, :X, jpost
+        opsum += g, :Z, j, :Z, jpost
+        opsum += -g, :iY, j, :iY, jpost
     end
 
     eigenergies, eigstates = spectrum(opsum, basis; retvecs=true)
@@ -38,12 +40,24 @@ let
     overlaps = abs2.(transpose(eigstates) * initvec)
     marksizes = [overlaps[n] > 1e-2 ? 20 : 5 for n in 1 : basis.dim]
 
-    fig = Figure()
-    ax = Axis(fig[1, 1], title="Entropy vs energy", yscale=log10, 
-        xlabel=L"E_n", ylabel=L"S(L/2)",  
-        limits=(nothing, (2e-1, 3)))
+    set_theme!(Axis = (
+        xtickalign = 1, xgridvisible=false, 
+        ytickalign = 1, ygridvisible=false, 
+        xlabelsize = 18, 
+        ylabelsize = 18
+    ))
 
-    scatter!(ax, eigenergies, entropies, color = overlaps, colormap=:viridis, markersize=marksizes)
+    fig = Figure()
+    ax = Axis(fig[1, 1], 
+        title="Entropy vs energy", yscale=identity, 
+        xlabel=L"E_n", ylabel=L"S(L/2)",  
+        # limits=(nothing, (0.0, 5))
+    )
+
+    scatter!(ax, eigenergies, entropies, 
+        color = overlaps, colormap=:viridis, 
+        markersize=marksizes
+    )
     fig
     
 end
