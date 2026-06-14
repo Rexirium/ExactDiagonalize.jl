@@ -5,8 +5,9 @@
 function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
     shift = basis.lsize - b
 
+    mask = (0x00001 << shift) - 0x00001
     left_parts = basis.bitsvec .>> shift
-    right_parts = basis.bitsvec .& ((0x00001 << shift) - 0x00001)
+    right_parts = basis.bitsvec .& mask
 
     lbits = unique(left_parts)
     rbits = unique(right_parts)
@@ -32,7 +33,7 @@ function ent_entropy(basis::AbstractBasis, psi::Vector, b::Int=basis.lsize ÷ 2)
 
     @inbounds for s in Σ
         p = s*s
-        if 1e-300 < p <= 1.0
+        if 1e-300 < p < 1.0
             SvN -= p * log(p)
         end
     end
