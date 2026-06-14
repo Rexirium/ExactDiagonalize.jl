@@ -10,7 +10,7 @@ let
 
     # Initial state: Neel state
     basis = SpinBasis(L; num = N)
-    init = QState(basis, "1000000000")
+    init = ProductState(basis, "1000000000")
     
     # Build Hamiltonian terms for XXZ model
     opsum = OpSum(Float64)

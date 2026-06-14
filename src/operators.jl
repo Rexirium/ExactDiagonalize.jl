@@ -1,7 +1,3 @@
-# Include utility and basis definitions
-include("utils.jl")
-include("state_basis.jl")
-
 # System type (e.g., :Spin)
 const _systype = Ref{Val}(Val(:Spin))
 

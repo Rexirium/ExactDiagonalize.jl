@@ -8,7 +8,7 @@ let
     B = 0.5
 
     basis = SpinBasis(L)
-    init = QState(basis, fill(:Dn, L))
+    init = ProductState(basis, fill(:Dn, L))
 
     opsum = OpSum(Float64)
     for j in 1:L-1

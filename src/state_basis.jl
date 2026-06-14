@@ -118,10 +118,12 @@ struct QState{T <: Number, B <: AbstractBasis}
     vector::Vector{T}
 end
 
+# Constructors for product states and random states in a given basis
 product_state(basis::AbstractBasis, bits::UInt32) = product_state(ComplexF64, basis, bits)
-product_state(basis::AbstractBasis, lsize::Int, func::Function) = product_state(ComplexF64, basis, lsize, func)
+product_state(basis::AbstractBasis, func::Function) = product_state(ComplexF64, basis, func)
 product_state(basis::AbstractBasis, symvec::Vector{Symbol}) = product_state(ComplexF64, basis, symvec)
 product_state(basis::AbstractBasis, statestr::String) = product_state(ComplexF64, basis, statestr)
+random_state(basis::AbstractBasis) = random_state(ComplexF64, basis)
 
 function product_state(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
     vector = zeros(ELT, basis.dim)
@@ -131,10 +133,9 @@ function product_state(ELT::Type{<:Number}, basis::AbstractBasis, bits::UInt32)
     return vector
 end
 
-function product_state(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, func::Function)
-    lsize <= 32 || error("System size too large for UInt32 representation")
+function product_state(ELT::Type{<:Number}, basis::AbstractBasis, func::Function)
     bits = 0x00000
-    for j in 1 : lsize
+    for j in 1 : basis.lsize
         bits |= bitDict[func(j)]  # Set bit for current symbol
         bits <<= 0x01        # Shift left for next symbol
     end
@@ -143,7 +144,6 @@ function product_state(ELT::Type{<:Number}, basis::AbstractBasis, lsize::Int, fu
 end
 
 function product_state(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symbol})
-    length(symvec) <= 32 || error("System size too large for UInt32 representation")
     bits = 0x00000
     for s in symvec
         bits |= bitDict[s]  # Set bit for current symbol
@@ -156,33 +156,25 @@ end
 product_state(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String) = 
     product_state(ELT, basis, parse(UInt32, statestr; base=2))
 
-
-QState(basis::AbstractBasis, bits::UInt32) = QState(ComplexF64, basis, bits)
-QState(basis::AbstractBasis, statestr::String) = QState(ComplexF64, basis, statestr)
-QState(basis::AbstractBasis, symvec::Vector{Symbol}) = QState(ComplexF64, basis, symvec)
-QState(basis::AbstractBasis, lsize::Int, func::Function) = QState(ComplexF64, basis, lsize, func)
-
-function QState(ELT::Type{<:Number}, basis::B, bits::UInt32) where B <: AbstractBasis
-    vector = product_state(ELT, basis, bits)
-    QState{ELT, B}(basis, vector)
+function random_state(ELT::Type{<:Number}, basis::AbstractBasis)
+    vector = randn(ELT, basis.dim)
+    LinearAlgebra.normalize!(vector)
+    return vector
 end
 
-function QState(ELT::Type{<:Number}, basis::B, statestr::String) where B <: AbstractBasis
-    vector = product_state(ELT, basis, statestr)
-    QState{ELT, B}(basis, vector)
-end
+# Convenience constructors for QState
+ProductState(ELT::Type{<:Number}, basis::AbstractBasis, args...) = 
+    QState(basis, product_state(ELT, basis, args...))
+ProductState(basis::AbstractBasis, args...) = 
+    QState(basis, product_state(ComplexF64, basis, args...))
 
-function QState(ELT::Type{<:Number}, basis::B, symvec::Vector{Symbol}) where B <: AbstractBasis
-    vector = product_state(ELT, basis, symvec)
-    QState{ELT, B}(basis, vector)
-end
-
-function QState(ELT::Type{<:Number}, basis::B, lsize::Int, func::Function) where B <: AbstractBasis
-    vector = product_state(ELT, basis, lsize, func)
-    QState{ELT, B}(basis, vector)
-end
+RandomState(ELT::Type{<:Number}, basis::AbstractBasis) = QState(basis, random_state(ELT, basis))
+RandomState(basis::AbstractBasis) = QState(basis, random_state(ComplexF64, basis))
 
 
+# ============================================================================
+# Some basic linear algebra operations for quantum states
+# ============================================================================
 function LinearAlgebra.normalize!(psi::QState)
     LinearAlgebra.normalize!(psi.vector)
 end
@@ -198,54 +190,3 @@ function Base.:+(x::QState, y::QState)
     return QState(y.basis, x.vector + y.vector)
 end
 
-function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
-    shift = basis.lsize - b
-
-    left_parts = basis.bitsvec .>> shift
-    right_parts = basis.bitsvec .& ((0x00001 << shift) - 0x00001)
-
-    lbits = unique(left_parts)
-    rbits = unique(right_parts)
-    M, N = length(lbits), length(rbits)
-
-    ldict = Dict(v => i for (i, v) in enumerate(lbits))
-    rdict = Dict(v => i for (i, v) in enumerate(rbits))
-
-    mat = zeros(T, M, N)
-    @inbounds for i in 1 : basis.dim
-        lidx = ldict[left_parts[i]]
-        ridx = rdict[right_parts[i]]
-        mat[lidx, ridx] = psi[i]
-    end
-    return mat
-end
-
-function ent_entropy(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
-    (b <= 0 || b >= basis.lsize) && return 0.0
-    mat = matrixize(basis, psi, b)
-    Σ = svdvals!(mat)
-    SvN = 0.0
-
-    @inbounds for s in Σ
-        p = s*s
-        if p > 1e-300
-            SvN -= p * log(p)
-        end
-    end
-    return SvN
-end
-
-function ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2)
-    (b <= 0 || b >= psi.basis.lsize) && return 0.0
-    mat = matrixize(psi.basis, psi.vector, b)
-    Σ = svdvals!(mat)
-    SvN = 0.0
-
-    @inbounds for s in Σ
-        p = s*s
-        if p > 1e-300
-            SvN -= p * log(p)
-        end
-    end
-    return SvN
-end

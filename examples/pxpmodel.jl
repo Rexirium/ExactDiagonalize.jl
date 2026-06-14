@@ -11,7 +11,7 @@ let
 
     basis = SpinBasis(Ls)
 
-    initvec = product_state(basis, Ls, n -> isodd(n) ? :Up : :Dn)
+    initvec = product_state(basis, n -> isodd(n) ? :Up : :Dn)
 
     opsum = OpSum(Float64)
     for j in 1 : Ls

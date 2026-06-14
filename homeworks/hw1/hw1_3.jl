@@ -9,7 +9,7 @@ let
 
     # Initial state: single up spin at site 1
     basis = SpinBasis(L; num=N)
-    init = QState(basis, "1100000000")
+    init = ProductState(basis, "1100000000")
     
     # Build Hamiltonian terms for XY model
     opsum = OpSum(Float64)
