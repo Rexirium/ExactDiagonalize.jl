@@ -148,8 +148,8 @@ function apply(coef::Number, ops::Vector{<:AbstractOp}, bits::UInt32)
 end
 
 # Build operator matrix in given basis
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Nothing}; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N}
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis; 
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
     ELT = promote_type(T, dtype)
     opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
@@ -163,7 +163,7 @@ function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{N, Not
     return opmat
 end
 
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::SpinBasis{Nothing, Int}; 
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{Nothing, Int}; 
     sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
     
@@ -220,8 +220,8 @@ Construct the hamiltonian matrix from OpSum type with assigned basis.
 Return either dense or sparse matrix controled by sparsed, default to be dense
 because `eigen` in LinearAlgebra does not support sparse matrix.
 """
-function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing}; 
-    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N}
+function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis; 
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
@@ -240,7 +240,7 @@ function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{N, Nothing};
     return hmat
 end
 
-function makeHamiltonian(opsum::OpSum{T}, basis::SpinBasis{Nothing, Int}; 
+function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{Nothing, Int}; 
     sparsed::Bool=false, dtype::Type{<:Number}=Float64) where T <: Number
     dim = basis.dim
     opnum = length(opsum.covec)

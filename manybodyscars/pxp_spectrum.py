@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 L = 16
 b = L // 2
-g = 0.1
+g = -0.1
 
 basis = pxp_basis_1d(L)
 
@@ -52,7 +52,11 @@ plt.rcParams.update({
 fig, ax = plt.subplots()
 
 ax.scatter(E, entropies, c=overlaps, cmap='plasma', s=10)
+ax.set(
+    xlabel=r"$E_n$", ylabel=r"$S(L/2)$", 
+    xlim=(-8, 8)
+)
 #ax.set_yscale("log")
 #ax.set_ylim(1e-5, 10.0)
 
-plt.savefig(f"manybodyscars/pxp_python_L={L}.png")
+plt.savefig("pxp_constraint")

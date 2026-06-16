@@ -6,7 +6,8 @@
 # number-conserving (fixed particle number) bases for spin or fermionic systems.
 
 # Abstract base types for basis and state representations
-abstract type AbstractBasis end
+const NInt = Union{Int, Nothing}
+abstract type AbstractBasis{N <: NInt, K <: NInt} end
 
 # ============================================================================
 # SYMBOL-TO-BIT MAPPING
@@ -25,12 +26,12 @@ const bitDict = Dict{Symbol, Bool}(
 # BASIS DEFINITIONS AND CONSTRUCTORS
 # ============================================================================
 # Consstruct basis for 1D spin system
-struct SpinBasis{N, K, V <: AbstractVector{UInt32}} <: AbstractBasis
+struct SpinBasis{N <: NInt, K <: NInt} <: AbstractBasis{N, K}
     lsize::Int
     dim::Int
     num::N # total spin up numbers
     kint::K # momentum sector label, i.e. `m` in  k = 2πm/L
-    bitsvec::V
+    bitsvec::AbstractVector{UInt32}
     orbsize::Vector{UInt32} 
 end
 
@@ -144,6 +145,8 @@ function product_state(ELT::Type{<:Number}, basis::AbstractBasis, func::Function
 end
 
 function product_state(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector{Symbol})
+    length(symvec) == basis.lsize || error("The length of symbol vector incompactible with the basis!")
+
     bits = 0x00000
     for s in symvec
         bits |= bitDict[s]  # Set bit for current symbol
@@ -153,8 +156,10 @@ function product_state(ELT::Type{<:Number}, basis::AbstractBasis, symvec::Vector
     return product_state(ELT, basis, bits)
 end
 
-product_state(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String) = 
-    product_state(ELT, basis, parse(UInt32, statestr; base=2))
+function product_state(ELT::Type{<:Number}, basis::AbstractBasis, statestr::String)
+    length(statestr) == basis.lsize || error("The length of state string incompactible with the basis!")
+    return product_state(ELT, basis, parse(UInt32, statestr; base=2))
+end
 
 function random_state(ELT::Type{<:Number}, basis::AbstractBasis)
     vector = randn(ELT, basis.dim)
