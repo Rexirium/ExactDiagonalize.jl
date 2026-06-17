@@ -113,11 +113,6 @@ end
 # ============================================================================
 # QUANTUM STATE CONSTRUCTORS
 # ============================================================================
-# Construct the Quantum state with basis and coefficient vector
-struct QState{T <: Number, B <: AbstractBasis}
-    basis::B
-    vector::Vector{T}
-end
 
 # Constructors for product states and random states in a given basis
 product_state(basis::AbstractBasis, bits::UInt32) = product_state(ComplexF64, basis, bits)
@@ -165,6 +160,12 @@ function random_state(ELT::Type{<:Number}, basis::AbstractBasis)
     vector = randn(ELT, basis.dim)
     LinearAlgebra.normalize!(vector)
     return vector
+end
+
+# Construct the Quantum state with basis and coefficient vector
+struct QState{T <: Number, B <: AbstractBasis}
+    basis::B
+    vector::Vector{T}
 end
 
 # Convenience constructors for QState

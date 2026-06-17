@@ -18,17 +18,17 @@ function updating!(psi::Vector{T}, hmat::SpMatrix, dt::Real, order::Int) where T
 end
 
 # Evolve state using Taylor expansion of exp(-iHt) with sparse matrix
-function timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractObserver, ::Val{:spmat}; order::Int=4)
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:spmat}; order::Int=4)
     hmat = makeHamiltonian(ops, init.basis; sparsed=true)
     psi = ComplexF64.(init.vector)
 
-    dt = step(ts)
-    for i in 1:length(ts)
+    for i in eachindex(ts)
         record!(obs, psi, i)
         if i == length(ts)
             break
         end
-        
+
+        dt = ts[i+1] - ts[i]
         updating!(psi, hmat, dt, order)
     end
     return QState(init.basis, psi)

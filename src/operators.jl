@@ -135,11 +135,11 @@ end
 end
 
 # Apply a sequence of operators to a bitstring
-function apply(coef::Number, ops::Vector{<:AbstractOp}, bits::UInt32)
-    element = coef
+function act_seq(coeff::T, ops::Vector{<:AbstractOp}, bits::UInt32) where T <: Number
+    element = coeff
     newbits = bits
 
-    @inbounds for op in ops
+    for op in ops
         newbits, ele_mul = act(op, newbits)
         element *= ele_mul
         iszero(element) && break
@@ -149,13 +149,13 @@ end
 
 # Build operator matrix in given basis
 function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where T <: Number
     dim = basis.dim
     ELT = promote_type(T, dtype)
     opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
-        newbits, element = apply(coeff, ops, bits)
+        newbits, element = act_seq(coeff, ops, bits)
         i = findindex(basis, newbits)
         (i > dim || iszero(element)) && continue
         opmat[i, j] += element
@@ -177,7 +177,7 @@ function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{No
     orbits = basis.orbsize
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
-        newbits, element = apply(coeff, ops, bits)
+        newbits, element = act_seq(coeff, ops, bits)
         i, d = findindex(basis, newbits)
         (i > dim || iszero(element)) && continue
 
@@ -231,7 +231,7 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis;
     hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim) 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
-            newbits, element = apply(covec[s], opvec[s], bits)
+            newbits, element = act_seq(covec[s], opvec[s], bits)
             i = findindex(basis, newbits)
             (i > dim || iszero(element)) && continue
             hmat[i, j] += element
@@ -257,7 +257,7 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{Nothing, Int};
     hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
-            newbits, element = apply(covec[s], opvec[s], bits)
+            newbits, element = act_seq(covec[s], opvec[s], bits)
             i, d = findindex(basis, newbits)
             (i > dim || iszero(element)) && continue
             

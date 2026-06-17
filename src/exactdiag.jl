@@ -39,24 +39,28 @@ function timeEvolve(ops::OpSum, init::QState, tf::Real)
 end
 
 # Evolve state for multiple time steps and record observables
-function timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractObserver, ::Val{:exact})
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
     hmat = makeHamiltonian(ops, init.basis)
     eigs, U = eigen!(Hermitian(hmat))
 
     psi = ComplexF64.(init.vector)
     psi_trans = U' * psi
+    phases = similar(psi)
+    psi_phases = similar(psi)
 
-    dt = step(ts)
-    step_phases = cis.(-dt * eigs)
-
-    record!(obs, psi, 1)
-    for i in 2:length(ts)
-        psi_trans .*= step_phases
-        mul!(psi, U, psi_trans)
-        record!(obs, psi, i + 1)
+    for (i, t) in enumerate(ts)
+        if i == 1
+            record!(obs, psi, 1)
+            continue
+        end
+        phases = cis.( -t * eigs)
+        psi_phases .= phases .* psi_trans
+        mul!(psi, U, psi_phases)
+        record!(obs, psi, 1)
     end
     return QState(init.basis, psi)
 end
 
 # Default method: exact diagonalization
-timeEvolve(ops::OpSum, init::QState, ts::AbstractRange, obs::AbstractObserver) = timeEvolve(ops, init, ts, obs, Val(:exact))
+timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver) = 
+    timeEvolve(ops, init, ts, obs, Val(:exact))
