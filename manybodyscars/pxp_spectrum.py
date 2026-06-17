@@ -13,7 +13,7 @@ basis = pxp_basis_1d(L)
 h_list = [[1.0, i] for i in range(L)]
 hh_list = [[g, i, (i + 1) % L] for i in range(L)]
 
-static = [["x", h_list], ["xx", hh_list], ["yy", hh_list], ["zz", hh_list]]
+static = [["x", h_list]]# , ["xx", hh_list], ["yy", hh_list], ["zz", hh_list]]
 
 no_checks = dict(check_symm=False, check_pcon=False, check_herm=False)
 H_pxp = hamiltonian(static, [], basis=basis, dtype=np.float64, **no_checks)
@@ -28,7 +28,7 @@ Z2state[Z2idx] = 1.0
 
 overlaps = np.abs(np.matvec(U.T, Z2state)) ** 2
 
-
+marksizes = [12 if overlaps[n] > 0.01 else 5 for n in range(basis.Ns)]
 # entropies = basis.ent_entropy(U, density=False, enforce_pure=True)['Sent_A']
 
 entropies = np.zeros(basis.Ns)
@@ -51,12 +51,13 @@ plt.rcParams.update({
 
 fig, ax = plt.subplots()
 
-ax.scatter(E, entropies, c=overlaps, cmap='plasma', s=10)
+ax.scatter(E, entropies, c=overlaps, cmap='plasma', s=marksizes)
 ax.set(
+    title=rf"$L={L}$ Original PXP model", 
     xlabel=r"$E_n$", ylabel=r"$S(L/2)$", 
     xlim=(-8, 8)
 )
 #ax.set_yscale("log")
 #ax.set_ylim(1e-5, 10.0)
-
-plt.savefig("pxp_constraint")
+#plt.show()
+plt.savefig(f"manybodyscars/pxp_origin_L={L}.png")
