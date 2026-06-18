@@ -163,8 +163,8 @@ function random_state(ELT::Type{<:Number}, basis::AbstractBasis)
 end
 
 # Construct the Quantum state with basis and coefficient vector
-struct QState{T <: Number, B <: AbstractBasis}
-    basis::B
+struct QState{T <: Number}
+    basis::AbstractBasis
     vector::Vector{T}
 end
 
