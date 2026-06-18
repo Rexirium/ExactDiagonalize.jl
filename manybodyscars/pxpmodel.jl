@@ -7,7 +7,7 @@ using CairoMakie
 let
     set_systype(:Spin)
     Ls = 12
-    g = 0.2
+    g = - 0.1
 
     basis = SpinBasis(Ls)
 
@@ -21,7 +21,7 @@ let
         jppost = mod1(j + 2, Ls)
 
         opsum += 1.0, :Pdn, jprev, :X, j, :Pdn, jpost
-        opsum += g, :Z, j, :Z, jpost
+        opsum += g*(-1)^j, :Z, j
         #opsum += g, :X, j, :X, jpost
         #opsum += -g, :iY, j, :iY, jpost
     end
@@ -51,7 +51,7 @@ let
 
     fig = Figure()
     ax = Axis(fig[1, 1], 
-        title="L = $(Ls), gzz = $g", 
+        title="L = $(Ls), Z₂ gz = $g", 
         yscale=identity, 
         xlabel=L"E_n", ylabel=L"S(L/2)",  
         # limits=(nothing, (0.0, 5))
@@ -61,6 +61,6 @@ let
         color = overlaps, colormap=:plasma, 
         markersize=marksizes
     )
-    save("manybodyscars/pxp_unconstrained_zz_L=$(Ls)_g=$(g).png", fig)
+    save("manybodyscars/pxp_unconstrained_z2_L=$(Ls)_g=$(g).png", fig)
     
 end
