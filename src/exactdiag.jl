@@ -27,23 +27,12 @@ function spectrum(ops::OpSum, lsize::Int)
     return energies
 end
 
-# Evolve state to time tf using exact diagonalization
-function timeEvolve(ops::OpSum, init::QState, tf::Real)
-    hmat = makeHamiltonian(ops, init.basis)
-    eigs, U = eigen(Hermitian(hmat))
-    
-    phases = cis.( -tf * eigs)
-    expEt = Diagonal(phases)
-    final = U * expEt * U' * (init.vector)
-    return QState(init.basis, final)
-end
-
 # Evolve state for multiple time steps and record observables
-function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
-    hmat = makeHamiltonian(ops, init.basis)
+function timeEvolve(ops::OpSum, basis::AbstractBasis, psi0::Vector, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
+    hmat = makeHamiltonian(ops, basis)
     eigs, U = eigen!(Hermitian(hmat))
 
-    psi = ComplexF64.(init.vector)
+    psi = ComplexF64.(psi0)
     psi_trans = U' * psi
     phases = similar(psi)
     psi_phases = similar(psi)
@@ -58,9 +47,17 @@ function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractO
         mul!(psi, U, psi_phases)
         record!(obs, psi, 1)
     end
+    return psi
+end
+
+function timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver, ::Val{:exact})
+    psi = timeEvolve(ops, init.basis, init.vector, ts, obs, Val(:exact))
     return QState(init.basis, psi)
 end
 
 # Default method: exact diagonalization
+timeEvolve(ops::OpSum, basis::AbstractBasis, psi0::Vector, ts::AbstractVector, obs::AbstractObserver) =
+    timeEvolve(ops, basis, psi0, ts, obs, Val(:exact))
+    
 timeEvolve(ops::OpSum, init::QState, ts::AbstractVector, obs::AbstractObserver) = 
     timeEvolve(ops, init, ts, obs, Val(:exact))
