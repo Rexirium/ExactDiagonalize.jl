@@ -3,11 +3,8 @@
 # ===============================================
 
 function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
-    shift = basis.lsize - b
 
-    mask = (0x00001 << shift) - 0x00001
-    left_parts = basis.bitsvec .>> shift
-    right_parts = basis.bitsvec .& mask
+    left_parts, right_parts = splitbasis(basis.bitsvec, basis.lsize - b)
 
     lbits = unique(left_parts)
     rbits = unique(right_parts)
@@ -41,3 +38,15 @@ function ent_entropy(basis::AbstractBasis, psi::Vector, b::Int=basis.lsize ÷ 2)
 end
 
 ent_entropy(psi::QState, b::Int=psi.basis.lsize ÷ 2) = ent_entropy(psi.basis, psi.vector, b)
+
+function reduced_density_matrix(basis::AbstractBasis, psi::Vector, b::Int=basis.lsize ÷ 2; subsys::Char='A')
+    mat = matrixize(basis, psi, b)
+    if subsys == 'A'
+        return mat * mat'
+    elseif subsys == 'B'
+        return mat' * mat
+    end
+    return mat * mat'
+end
+
+reduced_density_matrix(psi::QState, b::Int=basis.lsize ÷ 2; subsys::Char='A') = reduced_density_matrix(psi.basis, psi.vector, b; subsys=subsys)

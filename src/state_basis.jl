@@ -7,7 +7,8 @@
 
 # Abstract base types for basis and state representations
 const NInt = Union{Int, Nothing}
-abstract type AbstractBasis{N <: NInt, K <: NInt} end
+const NVInt = Union{Int, Vector{Int}, Nothing}
+abstract type AbstractBasis{N <: NVInt, K <: NInt} end
 
 # ============================================================================
 # SYMBOL-TO-BIT MAPPING
@@ -26,8 +27,9 @@ const bitDict = Dict{Symbol, Bool}(
 # BASIS DEFINITIONS AND CONSTRUCTORS
 # ============================================================================
 # Consstruct basis for 1D spin system
-struct SpinBasis{N <: NInt, K <: NInt} <: AbstractBasis{N, K}
+struct SpinBasis{N <: NVInt, K <: NInt} <: AbstractBasis{N, K}
     lsize::Int
+    a::Int
     dim::Int
     num::N # total spin up numbers
     kint::K # momentum sector label, i.e. `m` in  k = 2πm/L
@@ -36,24 +38,29 @@ struct SpinBasis{N <: NInt, K <: NInt} <: AbstractBasis{N, K}
 end
 
 function SpinBasis(lsize::Int; a::Int = 1, num = nothing, kint = nothing)
+    lsize % a == 0 || error("lattice size lsize must be divided by lattice spacing a!")
     if isnothing(num) && isnothing(kint)
         # full basis use UnitRange to save memory
         bitsvec = 0x00000 : ((0x00001 << lsize) - 0x00001)
-        return SpinBasis(lsize, 1 << lsize, num, kint, bitsvec, UInt32[])
+        return SpinBasis(lsize, a, 1 << lsize, num, kint, bitsvec, UInt32[])
+
     elseif !isnothing(num) && isnothing(kint)
         # Generate bits vector with fixed `1` s
         bitsvec = numbitbasis(lsize, num)
-        return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, UInt32[])
+        return SpinBasis(lsize, a, length(bitsvec), num, kint, bitsvec, UInt32[])
+
     elseif isnothing(num) && !isnothing(kint)
         bitsvec, orbsize = momentbitbasis(lsize, kint, a)
-        return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, orbsize)
+        return SpinBasis(lsize, a, length(bitsvec), num, kint, bitsvec, orbsize)
+
     else
-        error("Invalid basis type, wait for later development.")
+        bitsvec, orbsize = num_moment_bitbasis(lsize, num, kint, a)
+        return SpinBasis(lsize, a, length(bitsvec),num, kint, bitsvec, orbsize)
     end
 end
 
 Base.:(==)(b1::SpinBasis, b2::SpinBasis) = 
-    (b1.lsize == b2.lsize) && (b1.num == b2.num) && (b1.kint == b2.kint)
+    (b1.lsize == b2.lsize) && (b1.a == b2.a) && (b1.num == b2.num) && (b1.kint == b2.kint)
 
 # find index of a product state in general basis
 function findindex(basis::SpinBasis{Nothing, Nothing}, bits::UInt32)::Int
@@ -61,32 +68,35 @@ function findindex(basis::SpinBasis{Nothing, Nothing}, bits::UInt32)::Int
 end
 
 # find index of a product state in number conserving basis
-function findindex(basis::SpinBasis{Int, Nothing}, bits::UInt32)::Int
-    count_ones(bits) == basis.num || return basis.dim + 1  # if number of ones doesn't match, return out of bounds index
+function findindex(basis::SpinBasis{Union{Int, Vector{Int}}, Nothing}, bits::UInt32)::Int
+    count_ones(bits) in basis.num || return basis.dim + 1  # if number of ones doesn't match, return out of bounds index
     return searchsortedfirst(basis.bitsvec, bits)
 end
 
 function findindex(basis::SpinBasis{Nothing, Int}, bits::UInt32)
     # For momentum sector basis, we need to check both the bitstring and its momentum label
     lsize = basis.lsize
+    a = basis.a
     resbits = bits
     tmpbits = bits
     bs64 = (UInt64(bits) << lsize) | bits
     mask = typemax(UInt32) >> (32 - lsize)
 
     dist = 0
-    for i in 1 : lsize - 1
-        tmpbits = ((bs64 >> (lsize - i)) % UInt32) & mask
+    for d in a : a : lsize - a
+        tmpbits = ((bs64 >> (lsize - d)) % UInt32) & mask
 
         is_less = tmpbits < resbits
         resbits = ifelse(is_less, tmpbits, resbits)
-        dist = ifelse(is_less, i, dist)
+        dist = ifelse(is_less, d, dist)
     end
     return searchsortedfirst(basis.bitsvec, resbits), dist
 end
 
 # find index of a product state in other basis
-function findindex(basis::SpinBasis{Int, Int}, bits::UInt32)::Int
+function findindex(basis::SpinBasis{Int, Int}, bits::UInt32)
+    count_ones(bits) == basis.num || return basis.dim + 1
+
     return searchsortedfirst(basis.bitsvec, bits)
 end
 
@@ -94,12 +104,14 @@ function Base.print(basis::SpinBasis; bitstyle::String="bin")
     lsize = basis.lsize
     println("Basis size: $(basis.dim)")
     println("Index\tState\tInteger")
+
     if bitstyle == "bin"
         for (i, bits) in enumerate(basis.bitsvec)
             bstr = bitstring(bits)[33 - lsize : end]
             bstr = "| " * join(bstr, ' ') * " ⟩"
             println("$(i).\t$bstr\t$bits")
         end
+
     elseif bitstyle == "sym" || bitstyle == "arrow"
         for (i, bits) in enumerate(basis.bitsvec)
             bstr = bitstring(bits)[33 - lsize : end]

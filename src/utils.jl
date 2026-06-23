@@ -39,79 +39,194 @@ function flip(bits::UInt32, pos::Unsigned, b::Bool)::UInt32
     return bits ⊻ (b << (pos - 0x01))
 end
 
-function cshift(bits::UInt32, len::Int, shift::Int)::UInt32
+function cshift(bits::UInt32, len::Int, shift::Int=1)::UInt32
     # Circularly shift the bits in `bits` to the left by `shift` positions, within a total length of `len` bits.
     shift_mod = mod(shift, len)
-    mask = (0x00001 << len) - 0x00001
+    mask = typemax(UInt32) >> (32 - len)
     return ((bits << shift_mod) | (bits >> (len - shift_mod))) & mask
 end
 
-function cshift(bits::UInt32, len::Int)::UInt32
-    mask = (0x00001 << len) - 0x00001
-    return ((bits << 1) | (bits >> (len - 1))) & mask
-end
-
-function splitbasis(bits::UInt32, b::Unsigned)::Tuple{UInt32, UInt32}
+function splitbasis(bits::UInt32, shift::Int)::Tuple{UInt32, UInt32}
     # Split the integer `bits` into two parts at bit position `b`.
     # Returns a tuple (right, left), where `right` contains the lower `b` bits and `left` contains the remaining higher bits.
-    b >= 0x00000 || return 0x00000, bits
-    left = bits >> b
-    right = bits & ((0x00001 << b) - 0x00001)
+    shift >= 0x00000 || return 0x00000, bits
+    left = bits >> shift
+    right = bits & ((0x00001 << shift) - 0x00001)
     return right, left
+end
+
+function splitbasis(bitsvec::Vector{UInt32}, shift::Int)
+    mask = (0x00001 << shift) - 0x00001
+    lefts = bitsvec .>> shift
+    rights = bitsvec .& mask
+    return lefts, rights
 end
 
 function numbitbasis(len::Int, num::Int)::Vector{UInt32}
     """
     numbitbasis(len::Int, num::Int)
-    Generate all `len`-bit integers with exactly `num` bits set to 1.
+    Generate all `len`-bit integers with exactly `num` bits set to 1 with Gosper algorithm
     """
-    num > len && error("more ones than total bits")
+    num > len && error("more ones than total bits!")
     num == 0 && return UInt32[0x00000]
+
     basis = UInt32[]
     sizehint!(basis, binomial(len, num))
 
-    len_u = len % UInt8
-    num_u = num % UInt8
-    maxind = (0x00001 << len_u) - 0x00001
-    ind = (0x00001 << num_u) - 0x00001
+    maxind = (0x00001 << len) - 0x00001
+    ind = (0x00001 << num) - 0x00001
+
     while ind <= maxind
         push!(basis, ind)
+
+        #Gosper generating engine
         u = ind & (-ind)
         v = ind + u
-        next = v + ((v ⊻ ind) >> 0x02) ÷ u 
-        next > maxind && break
-        ind = next
+        next_ind = v + ((v ⊻ ind) >> 0x02) ÷ u 
+        next_ind > maxind && break
+        ind = next_ind
     end
     return basis
 end
 
+function numbitbasis(len::Int, nums::Vector{Int})::Vector{UInt32}
+    """
+    numbitbasis(len::Int, nums::Vector{Int})
+    Generate all `len`-bit integers with number of `1`s in a vector of integers `nums` with Gosper algorithm
+    """
+    total_dim = sum(n -> binomial(len, n), nums; init=0)
+
+    basis = Vector{UInt32}(undef, total_dim)
+    idx = 1
+
+    # Gosper engine for every particle number `num`
+    @inbounds for num in nums
+        num > len && error("more ones than total bits!")
+        if num == 0
+            basis[idx] = 0x00000
+            idx += 1
+            continue
+        end
+
+        maxind = (0x00001 << len) - 0x00001
+        ind = (0x00001 << num) - 0x00001
+
+        while ind <= maxind
+            basis[idx] = ind
+            idx += 1
+            
+            # Gosper generating engine
+            u = ind & (-ind)
+            v = ind + u
+            next_ind = v + ((v ⊻ ind) >> 0x02) ÷ u 
+            next_ind > maxind && break
+            ind = next_ind
+        end
+    end
+
+    sort!(basis) # global ordered to use biparte search
+    return basis
+end
+
 function momentbitbasis(len::Int, kint::Int, a::Int=1)
-    u = zeros(Bool, len + 1)
+    """
+    momentbitbasis(len::Int, kint::Int, a::Int=1)
+    Generate all `len`-bit integers that is distinct under translation by lattice spacing `a`
+    """
+    n = len ÷ a
+    k = 0x001 << a
+    u = zeros(UInt16, len + 1)
+
     basis = UInt32[]
     orbit_sizes = UInt32[]
 
     function fkm_necklace(t, p)
-        if t > len
-            if len % p == 0
-                if (kint * p) % len == 0
+        if t > n
+            if n % p == 0
+                if (kint * p * a) % len == 0
                     val = 0x00000
-                    for i in 1:len
-                        val = (val << 0x01) | u[i + 1]
+                    for i in 1:n
+                        val = (val << a) | u[i + 1]
                     end
                     push!(basis, val)
                     push!(orbit_sizes, p % UInt32)
                 end
             end
+        
         else
             u[t + 1] = u[t - p + 1]
             fkm_necklace(t + 1, p)
             
-            if u[t - p + 1] == false
-                u[t + 1] = true
+            for j in (u[t - p + 1] + 0x001) : (k - 0x001)
+                u[t + 1] = j
                 fkm_necklace(t + 1, t)
             end
         end
     end
+
     fkm_necklace(1, 1)
+    return basis, orbit_sizes
+end
+
+function num_moment_bitbasis(len::Int, num::Int, kint::Int, a::Int=1)
+    basis = UInt32[]
+    orbit_sizes = UInt32[]
+
+    if num == 0
+        if (kint * 1) % len == 0
+            push!(basis, 0x00000)
+            push!(orbit_sizes, 0x00001)
+        end
+        return basis, orbit_sizes
+    end
+
+    n = len ÷ a
+    mask = typemax(UInt32) >> (32 - len)
+
+    maxind = (0x00001 << len) - 0x00001
+    ind = (0x00001 << num) - 0x00001
+
+    while ind <= maxind
+        # ===================================================
+        # First part：combining smallest element for orbits check in momentbitbasis
+        # ===================================================
+        cur = ind
+        is_rep = true
+        p = n
+        
+        for step in 1:(n - 1)
+            # cyclic right shift by `a`
+            cur = ((cur >> a) | (cur << (len - a))) & mask
+            
+            if cur < ind
+                # smaller integer than `ind` indicating `ind` is not representative element
+                is_rep = false
+                break
+            elseif cur == ind
+                # return to itself for the first time, record the period
+                p = step
+                break
+            end
+        end
+        
+        # if ind is representative, check the momentum selection rule.
+        if is_rep
+            # CAUTION: rotating `p` blocks is translating `p*a` sites
+            if (kint * p * a) % len == 0
+                push!(basis, ind)
+                push!(orbit_sizes, p % UInt32)
+            end
+        end
+        
+        # ===================================================
+        # Second part: Gosper generating engine
+        # ===================================================
+        u = ind & (-ind)
+        v = ind + u
+        next_ind = v + ((v ⊻ ind) >> 0x02) ÷ u 
+        next_ind > maxind && break
+        ind = next_ind
+    end
+    
     return basis, orbit_sizes
 end
