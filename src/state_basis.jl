@@ -35,7 +35,7 @@ struct SpinBasis{N <: NInt, K <: NInt} <: AbstractBasis{N, K}
     orbsize::Vector{UInt32} 
 end
 
-function SpinBasis(lsize::Int; num = nothing, kint = nothing)
+function SpinBasis(lsize::Int; a::Int = 1, num = nothing, kint = nothing)
     if isnothing(num) && isnothing(kint)
         # full basis use UnitRange to save memory
         bitsvec = 0x00000 : ((0x00001 << lsize) - 0x00001)
@@ -45,7 +45,7 @@ function SpinBasis(lsize::Int; num = nothing, kint = nothing)
         bitsvec = numbitbasis(lsize, num)
         return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, UInt32[])
     elseif isnothing(num) && !isnothing(kint)
-        bitsvec, orbsize = momentbitbasis(lsize, kint)
+        bitsvec, orbsize = momentbitbasis(lsize, kint, a)
         return SpinBasis(lsize, length(bitsvec), num, kint, bitsvec, orbsize)
     else
         error("Invalid basis type, wait for later development.")

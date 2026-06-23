@@ -85,8 +85,8 @@ function numbitbasis(len::Int, num::Int)::Vector{UInt32}
     return basis
 end
 
-function momentbitbasis(len::Int, kint::Int)
-    a = zeros(UInt32, len + 1)
+function momentbitbasis(len::Int, kint::Int, a::Int=1)
+    u = zeros(Bool, len + 1)
     basis = UInt32[]
     orbit_sizes = UInt32[]
 
@@ -96,18 +96,18 @@ function momentbitbasis(len::Int, kint::Int)
                 if (kint * p) % len == 0
                     val = 0x00000
                     for i in 1:len
-                        val = (val << 0x01) | a[i + 1]
+                        val = (val << 0x01) | u[i + 1]
                     end
                     push!(basis, val)
                     push!(orbit_sizes, p % UInt32)
                 end
             end
         else
-            a[t + 1] = a[t - p + 1]
+            u[t + 1] = u[t - p + 1]
             fkm_necklace(t + 1, p)
             
-            if a[t - p + 1] == 0
-                a[t + 1] = 1
+            if u[t - p + 1] == false
+                u[t + 1] = true
                 fkm_necklace(t + 1, t)
             end
         end
