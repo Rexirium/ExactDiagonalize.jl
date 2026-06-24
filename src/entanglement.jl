@@ -4,7 +4,7 @@
 
 function matrixize(basis::AbstractBasis, psi::Vector{T}, b::Int) where T <: Number
 
-    left_parts, right_parts = splitbasis(basis.bitsvec, basis.lsize - b)
+    left_parts, right_parts = splitbasis(basis.bitsvec, UInt8(basis.lsize - b))
 
     lbits = unique(left_parts)
     rbits = unique(right_parts)
@@ -49,5 +49,5 @@ function reduced_density_matrix(basis::AbstractBasis, psi::Vector, b::Int=basis.
     return mat * mat'
 end
 
-reduced_density_matrix(psi::QState, b::Int=basis.lsize ÷ 2; subsys::Char='A') = 
+reduced_density_matrix(psi::QState, b::Int=psi.basis.lsize ÷ 2; subsys::Char='A') = 
     reduced_density_matrix(psi.basis, psi.vector, b; subsys=subsys)

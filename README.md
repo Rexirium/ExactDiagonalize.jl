@@ -54,9 +54,9 @@ L, N = 10, 1  # System size and particle number
 
 # Initial state: single excitation at site 1
 basis = SpinBasis(L; num = N)
-init = QState(basis, "1000000000")
+init = ProductState(basis, "1000000000")
 
-# Build XY Hamiltonian
+# Build XXZ Hamiltonian
 opsum = OpSum(Float64)
 for j in 1:L
     nj = mod1(j + 1, L) # PBC
@@ -65,12 +65,12 @@ for j in 1:L
     opsum += -1.0, :iY, j, :iY, nj
 end
 
-# Define observable and time points
-obs = ZObserver(L, basis)
+# Define observer for tracking Z expectation on site 1 and time points
+obs = ZObserver(1, basis)  # Track Z expectation at site 1
 ts = 0.0:0.05:10.0
 
-# Run time evolution
-timeEvolve(opsum, init, ts, obs)
+# Run time evolution with exact diagonalization
+timeEvolve(opsum, init, ts, obs, exact())
 
 @show obs.data # the data recorded
 ```
@@ -80,41 +80,85 @@ timeEvolve(opsum, init, ts, obs)
 ### State Representation
 
 - **`QState`**: Quantum state defined with basis and coefficient vector
-- **`SpinBasis(lsize; num, kint)`**: Basis for spin one-half system (only one dimension so far)
-  - The system has `lsize` sites with either spin-up $\uparrow$ represented by `1` or spin-down $\downarrow$ represented by `0`, i.e. on-site Hilbert subspace has dimension $d=2$ so far.
+- **`SpinBasis(lsize; a, num, kint)`**: Basis for spin one-half system (only one dimension so far)
+  - The system has `lsize` sites with either spin-up $\uparrow$ represented by `1` or spin-down $\downarrow$ represented by `0`, i.e. on-site Hilbert subspace has dimension $d=2$.
+  - `a`: lattice spacing parameter (default: 1). Must divide `lsize` evenly.
   - If only `num` is passed, the method will generate basis in subsector with conserved total particle number (total spin-z) `num`.
-  - If only `kint` is passed, the method will generate basis in subsector with conserved quasi-momentum $k = 2\pi m/L,\; m = 0, 1, \ldots L-1$, with $m$ labeled by `kint`
+  - If only `kint` is passed, the method will generate basis in subsector with conserved quasi-momentum $k = 2\pi m/(L/a),\; m = 0, 1, \ldots L/a-1$, with $m$ labeled by `kint`.
   - If none of the above is passed, the method will generate all $2^L$ full basis.
+- **`findindex(basis, bits)`**: Find the index of a product state (bitstring) in the basis
+  - Returns tuple `(index, distance)` where `index` is the basis index and `distance` is for momentum conservation
+  - Returns `(basis.dim + 1, 0)` if state is not in basis
+- **`ProductState(basis, args...)`** / **`product_state(basis, args...)`**: Create product states (computational basis states)
+  - Supports multiple input formats: bitstring `UInt32`, function `func(site) -> Symbol`, symbol vector, or binary string
+  - Examples: `ProductState(basis, 0x0001)`, `ProductState(basis, "1000000000")`, `ProductState(basis, [:Up, :Dn, :Up, ...])`
+- **`RandomState(basis)`** / **`random_state(basis)`**: Create random normalized quantum states
 
 ### Operators
 
-- **`SpinOp`**: Local spin operators 
-  - `SpinOp1`: Single-site spin operator ($X$, $Z$, $iY$, $\sigma^+$, $\sigma^-$, $P_\uparrow$, $P_\downarrow$)
-  - `SpinOp2`: Two-site spin operator ($CX$, $CZ$)
-- **`FermionOp`**: Local Fermion operator in second quatization form. Wait for later development
-- **`Op(name, loc)`**: Constructor for individual local operator, automatically decide the operator type based on operator name `name`. The `loc` parameter assigns the site location the operator acts on.
-- **`Operator`**: Multi-site operator products, such as $aX_i X_{i+1}$ ,  $b CX_{1,2} Z_3$. (Not explicitly specified)
-- **`OpSum`**: Linear combinations of operators (Hamiltonian)
+- **`SpinOp`**: Base type for spin operators
+  - `SpinOp1`: Single-site spin operators ($X$, $Z$, $iY$, $\sigma^+$, $\sigma^-$, $P_\uparrow$, $P_\downarrow$)
+  - `SpinOp2`: Two-site spin operators ($CX$, $CZ$)
+- **`Op(name, loc)`**: Constructor for individual local operator, automatically determines operator type
+  - `name`: Symbol specifying the operator (`:X`, `:Z`, `:iY`, `:σp`, `:σm`, `:Pup`, `:Pdn`, `:CX`, `:CZ`)
+  - `loc`: Site location (integer for single-site, tuple for two-site)
+- **`OpSum{T, O}`**: Linear combination of operator sequences (represents Hamiltonians)
+  - Can be built iteratively: `opsum = OpSum(Float64)` then `opsum += coeff, :op1, site1, :op2, site2, ...`
+  - Or from vector of tuples: `OpSum(Float64, [(coeff1, :op1, site1, ...), ...])`
 
-### Functions
+### Core Functions
 
-- **`spectrum(opsum, basis; retvecs)`**: Compute eigenvalues (and eigenvectors if retvecs is `true`)
-- **`timeEvolve(opsum, init_state, basis, tf)`**: Exact diagonalization time evolution to the final time `tf`
-- **`timeEvolve(opsum, init_state, times, ts, observer, alg)`**: Time evolution performed by chosen algorithm `alg`. For now,  `alg`: can take:
-  - `exact()` for exact diagonalization results ,
-  -  `rk4()` for ODE solver using 4th order Runge-Kutta algorithm, 
-  - `spmat()` for sparse matrix multiplication
-- **`record!(observer, state, step)`**: Record observable at time step `step`
-- **`makeHamiltonian(opsum, basis; sparsed, dtype)`**: Convert OpSum to sparse matrix Hamiltonian if `sparsed = true`
-  - element type may **NOT be `dtype`** as assigned when not possible
-  - **Caution!**: For now, the exact diagonalization algorithm only take Hamiltonian as a dense matrix for `eigen` in `LinearAlgebra.jl` do NOT support sparse matrix from `SparseArrays.jl`
-- **`expected(ops, psi)`**: compute the expected value of `ops`, an `OpSum` or an array of `Op`s, w.r.t the state `psi`
-- **`apply[!](ops, psi)`**: apply `ops`, an `OpSum` or an array of `Op`s to the state `psi`, return the result state. (`!` means inplace version to save memory)
-- **`dot(x, ops, y)`**: compute the inner product $\langle x | O|y\rangle$, $O$ can be an `OpSum` or an array of `Op`s
+#### Spectrum Computation
+- **`spectrum(opsum, basis; retvecs=false)`**: Compute eigenvalues and optionally eigenvectors of an `OpSum` in given basis
+  - Returns eigenvalues if `retvecs=false` (default)
+  - Returns `Eigen` object (eigenvalues and eigenvectors) if `retvecs=true`
+- **`spectrum(opsum, lsize)`**: Compute full spectrum by summing over all particle number sectors (for `SpinBasis` with `num` conservation)
+
+#### Time Evolution
+- **`timeEvolve(opsum, init, ts, obs, alg)`**: Time evolution with observable recording
+  - `init`: Initial state as `QState` or basis with state vector
+  - `ts`: Array of time points
+  - `obs`: Observer for recording observables (see below)
+  - `alg`: Algorithm selector - `exact()`, `rk4()`, or `spmat(; order=4)` (default: `exact()`)
+  - Returns final state as `QState` or vector
+
+#### Observable Computation
+- **`record!(observer, state, step)`**: Record observable at time step (called internally by `timeEvolve`)
+- **`expected(ops, psi)`** / **`expected(opsum, psi)`**: Compute expected value $\langle \psi | O | \psi \rangle$
+  - First form: `ops` is a vector of operators, `psi` is `QState`
+  - Second form: `opsum` is `OpSum`, `psi` is `QState` (useful for computing total energy, etc.)
+- **`dot(x, ops, y)`**: Compute inner product $\langle x | O | y \rangle$ with operator `O`
+
+#### Operator Application
+- **`apply(ops, psi)`**: Apply operator(s) to state, returning new state
+- **`apply!(ops, psi)`**: In-place operator application to state (saves memory)
+- **`act(op, bits)`**: Apply single operator to bitstring, returns new bitstring and phase factor
+- **`act_seq(coeff, ops_list, bits)`**: Apply sequence of operators to bitstring
+
+#### Hamiltonian Construction
+- **`makeHamiltonian(opsum, basis; sparsed=false, dtype=ComplexF64)`**: Convert `OpSum` to matrix representation
+  - Returns dense matrix by default (required for exact diagonalization with `LinearAlgebra.eigen`)
+  - Returns sparse matrix if `sparsed=true` (for RK4 and sparse matrix methods)
+  - Used internally by evolution algorithms
+- **`matrixform(ops, basis[, coeff]; sparsed=true, dtype=Float64)`**: Build matrix representation of single operator sequence
+
+#### Entanglement Properties
+- **`ent_entropy(psi, b=lsize÷2)`**: Von Neumann entanglement entropy of subsystem with `b` sites
+  - Works with `QState` or basis with state vector
+- **`reduced_density_matrix(psi, b=lsize÷2; subsys='A')`**: Reduced density matrix for subsystem A or B
+
+### Observer Types
+
+- **`ZObserver(loc, basis)`**: Track Z-expectation value $\langle Z_i \rangle$ at site `loc`
+- **`XObserver(loc, basis)`**: Track X-expectation value $\langle X_i \rangle$ at site `loc`
+- **`OpSumObserver(opsum, basis)`**: Track expectation value of entire `OpSum` (e.g., total energy)
+- **`OperatorObserver(os, basis)`**: Track expectation value of operator sequence `os` specified as tuple
+
+All observers have `.data` field containing the recorded time-dependent expectation values.
 
 ### System Configuration
 
-- **`set_systype(type)`**: Set system type (`:Spin` or `:Fermion`) (`:Fermion` type is yet to be developed)
+- **`set_systype(type)`**: Set system type (`:Spin` supported; `:Fermion` under development)
 - **`get_systype()`**: Query current system type
 
 ## Examples
@@ -123,6 +167,88 @@ See the `examples/` directory for complete working examples:
 
 - `xxzmodel.jl`: XXZ spin chain with time evolution and observable tracking ($U(1)$ symmetry used)
 - `tfimodel.jl`: Transverse field Ising model time evolution and observable tracking (using full state)
+
+### Advanced Usage Examples
+
+#### Using Different Time Evolution Algorithms
+
+```julia
+# Exact diagonalization (default)
+timeEvolve(opsum, init, ts, obs, exact())
+
+# RK4 ODE solver (for intermediate-sized systems)
+timeEvolve(opsum, init, ts, obs, rk4())
+
+# Sparse matrix exponential (good for larger systems)
+timeEvolve(opsum, init, ts, obs, spmat(; order=6))
+```
+
+#### Tracking Multiple Observables
+
+```julia
+# Track energy (OpSumObserver tracks full Hamiltonian)
+obs_energy = OpSumObserver(opsum, basis)
+
+# Track local expectation values
+obs_z1 = ZObserver(1, basis)
+obs_x2 = XObserver(2, basis)
+
+# Run evolution once, all observers record
+timeEvolve(opsum, init, ts, obs_energy)
+timeEvolve(opsum, init, ts, obs_z1)
+timeEvolve(opsum, init, ts, obs_x2)
+```
+
+#### Computing Entanglement
+
+```julia
+# Get final state from evolution
+final_state = timeEvolve(opsum, init, ts, obs)
+
+# Compute entanglement entropy
+S_vn = ent_entropy(final_state)  # Default: bipartition at L/2
+
+# Compute for different cut position
+S_vn_cut = ent_entropy(final_state, b=3)  # Bipartition after 3 sites
+
+# Get reduced density matrix
+ρ_A = reduced_density_matrix(final_state; subsys='A')
+ρ_B = reduced_density_matrix(final_state; subsys='B')
+```
+
+#### Computing Spectrum
+
+```julia
+# Compute eigenvalues in fixed particle number sector
+evals = spectrum(opsum, basis)
+
+# Compute eigenvalues and eigenvectors
+eig_result = spectrum(opsum, basis; retvecs=true)
+evals = eig_result.values
+evecs = eig_result.vectors
+
+# Compute full spectrum across all particle sectors
+evals_full = spectrum(opsum, L)
+```
+
+#### Working with Operators and Expectation Values
+
+```julia
+# Compute expectation value of energy
+E = expected(opsum, final_state)
+
+# Apply operator to state
+op_vec = Op(:Z, 1)  # Z operator at site 1
+new_state = apply([op_vec], final_state)
+
+# Compute correlation function ⟨ψ|O₁O₂|ψ⟩
+ops = [Op(:Z, 1), Op(:Z, 3)]
+corr = expected(ops, final_state)
+
+# Compute matrix representation of Hamiltonian (for advanced use)
+H_dense = makeHamiltonian(opsum, basis; sparsed=false)
+H_sparse = makeHamiltonian(opsum, basis; sparsed=true)
+```
 
 ## Key Features
 
@@ -136,13 +262,14 @@ See the `examples/` directory for complete working examples:
 ```
 src/
   ├── ExactDiagonalize.jl   # Main module
-  ├── exactdiag.jl          # Diagonalization core functions
-  ├── operators.jl          # Operator and Hamiltonian construction
-  ├── observers.jl          # Observer system
-  ├── ode_solver.jl         # Time evolution by ODE (RK4)
-  ├── sparsemat.jl          # Sparse matrix multiplication method
   ├── state_basis.jl        # State and basis definitions
-  └── utils.jl              # Helper utilities for binary operations
+  ├── operators.jl          # Operator and Hamiltonian construction
+  ├── observers.jl          # Observer system for tracking observables
+  ├── exactdiag.jl          # Exact diagonalization time evolution
+  ├── ode_solver.jl         # Time evolution by RK4 ODE solver
+  ├── sparsemat.jl          # Sparse matrix exponential time evolution
+  ├── entanglement.jl       # Entanglement entropy and reduced density matrices
+  └── utils.jl              # Helper utilities for bitstring operations
 ```
 
 ## Acknowlegement

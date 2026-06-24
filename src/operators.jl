@@ -148,7 +148,7 @@ function act_seq(coeff::T, ops::Vector{<:AbstractOp}, bits::UInt32) where T <: N
 end
 
 # Build operator matrix in given basis
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Nothing}; 
+function matrixform(ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Nothing}, coeff::T=1; 
     sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     ELT = promote_type(T, dtype)
@@ -166,7 +166,7 @@ function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{N,
     return opmat
 end
 
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Int}; 
+function matrixform(ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Int}, coeff::T=1; 
     sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     
@@ -195,28 +195,30 @@ end
 
 # Apply operator(s) to a state and return new state
 function apply(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(coeff, ops, psi.basis)
+    opmat = matrixform(ops, psi.basis, coeff)
     vector = opmat * psi.vector
     return QState(psi.basis, vector)
 end
 
 # In-place apply operator(s) to a state
 function apply!(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(coeff, ops, psi.basis)
-    lmul!(opmat, psi.vector)
+    opmat = matrixform(ops, psi.basis, coeff)
+    vector = similar(psi.vector)
+    mul!(vector, opmat, psi.vector)
+    copyto!(psi.vector, vector)
 end
 
 # Compute expectation value of operator(s) in a state
 function expected(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(coeff, ops, psi.basis)
+    opmat = matrixform(ops, psi.basis, coeff)
     v = psi.vector
     return real(dot(v, opmat, v))
 end
 
 # Compute ⟨x|O|y⟩ for two states and operator(s)
-function LinearAlgebra.dot(x::QState, ops::Tuple{Number, Vector{<:AbstractOp}}, y::QState)
+function LinearAlgebra.dot(x::QState, ops::Vector{<:AbstractOp}, y::QState)
     length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
-    opmat = matrixform(ops[1], ops[2], y.basis)
+    opmat = matrixform(ops, y.basis)
     return dot(x.vector, opmat, y.vector)
 end
 
@@ -286,7 +288,9 @@ end
 
 function apply!(opsum::OpSum, psi::QState)
     hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    lmul!(hmat, psi.vector)
+    vector = similar(psi.vector)
+    mul!(vector, hmat, psi.vector)
+    copyto!(psi.vector, vector)
 end
 
 function expected(opsum::OpSum, psi::QState)

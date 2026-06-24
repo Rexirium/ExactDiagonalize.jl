@@ -18,32 +18,45 @@ using SparseArrays
     end
 
     @testset "State Creation" begin
-        # Test QState creation from integer bits
+        # Test ProductState creation from integer bits
         bits = 0x0000a
         basis_num = SpinBasis(4; num=2)
-        state_num = QState(basis_num, bits)
+        state_num = ProductState(basis_num, bits)
         @test state_num.basis.num == count_ones(bits)
         @test length(state_num.vector) == 6  # Hilbert space dimension for 2 particles
-        @test real(sum(abs.(state_num.vector))) ≈ 1.0  # Normalized
+        @test norm(state_num) ≈ 1.0  # Normalized
         
-        # Test ull dimension State creation
+        # Test full dimension State creation
         basis_full = SpinBasis(3)
-        state_full = QState(basis_full, 0x00005)
+        state_full = ProductState(basis_full, 0x00005)
         @test state_full.basis.lsize == 3
         @test length(state_full.vector) == 8
         @test state_full.vector[5 + 1] ≈ 1.0
         
-        # Test QState creation from binary string
-        state_str = QState(basis_num, "1010")
+        # Test ProductState creation from binary string
+        state_str = ProductState(basis_num, "1010")
         @test state_str.basis.num == 2
         
         # Test full dimension State creation from binary string
-        state_full_str = QState(basis_full, "101")
+        state_full_str = ProductState(basis_full, "101")
         @test state_full_str.basis.lsize == 3
         
         # Test state with different element types
-        state_complex = QState(ComplexF64, basis_full, 0x00006)
+        state_complex = ProductState(ComplexF64, basis_full, 0x00006)
         @test eltype(state_complex.vector) == ComplexF64
+        
+        # Test RandomState creation
+        random_st = RandomState(basis_full)
+        @test norm(random_st) ≈ 1.0  # Should be normalized
+        
+        # Test low-level product_state function
+        vec_state = product_state(basis_full, 0x00005)
+        @test norm(vec_state) ≈ 1.0
+        @test vec_state[6] ≈ 1.0
+        
+        # Test low-level random_state function
+        vec_random = random_state(basis_full)
+        @test norm(vec_random) ≈ 1.0
     end
 
     @testset "Bit Manipulation Utilities" begin
@@ -136,6 +149,11 @@ using SparseArrays
         basis_num = SpinBasis(3; num=1)
         hmat_num = makeHamiltonian(ops_sum, basis_num)
         @test size(hmat_num)[1] == length(basis_num.bitsvec)
+        
+        # Test matrixform for single operator
+        ops_vec = [Op(:X, 1), Op(:X, 2)]
+        mat_single = matrixform(ops_vec, basis)
+        @test size(mat_single) == (4, 4)
     end
 
     @testset "Spectrum Computation" begin
@@ -178,6 +196,29 @@ using SparseArrays
         record!(obs, psi, 1)
         @test length(obs.data) == 1
         @test obs.data[1] == -1
+        
+        # Test OpSumObserver for energy tracking
+        set_systype(:Spin)
+        ops_sum = OpSum(ComplexF64)
+        ops_sum += 1.0, :Z, 1, :Z, 2
+        basis = SpinBasis(2)
+        obs_energy = OpSumObserver(ops_sum, basis)
+        @test length(obs_energy.data) == 0
+        
+        record!(obs_energy, psi, 1)
+        @test length(obs_energy.data) == 1
+        
+        # Test ZObserver directly
+        obs_z = ZObserver(1, basis)
+        @test length(obs_z.data) == 0
+        record!(obs_z, psi, 1)
+        @test length(obs_z.data) == 1
+        
+        # Test XObserver directly
+        obs_x = XObserver(1, basis)
+        @test length(obs_x.data) == 0
+        record!(obs_x, psi, 1)
+        @test length(obs_x.data) == 1
     end
 
     @testset "Time Evolution: Exact Diagonalization" begin
@@ -191,14 +232,16 @@ using SparseArrays
         
         # Initial state
         basis = SpinBasis(2)
-        init_state = QState(basis, 0x00000)
+        init_state = ProductState(basis, 0x00000)
         
-        # Evolve to short time
-        tf = 0.1
-        final_state = timeEvolve(ops_sum, init_state, tf)
+        # Evolve with time array and observer
+        ts = 0.0 : 0.05 : 0.1
+        obs = XObserver(1, basis)
+        final_state = timeEvolve(ops_sum, init_state, ts, obs, exact())
         
         @test length(final_state.vector) == length(init_state.vector)
-        @test norm(final_state) ≈ norm(init_state) atol = 1e-14 # Norm preserved
+        @test norm(final_state) ≈ 1.0 atol = 1e-14 # Norm preserved
+        @test length(obs.data) == length(ts)  # Observer recorded at each time point
     end
 
     @testset "Time Evolution: RK4 Method" begin
@@ -210,9 +253,9 @@ using SparseArrays
         ops_sum = OpSum(ComplexF64, operators)
         
         basis = SpinBasis(2)
-        init_state = QState(basis, 0x00000)
+        init_state = ProductState(basis, 0x00000)
         ts = 0.00 : 0.01 : 0.02
-        obs = ZObserver(1, init_state.basis)
+        obs = ZObserver(1, basis)
         
         final_state = timeEvolve(ops_sum, init_state, ts, obs, rk4())
         
@@ -230,9 +273,9 @@ using SparseArrays
         ops_sum = OpSum(ComplexF64, operators)
         
         basis = SpinBasis(2)
-        init_state = QState(basis, 0x00001)
+        init_state = ProductState(basis, 0x00001)
         ts = 0.00 : 0.01 : 0.02
-        obs = XObserver(1, init_state.basis)
+        obs = XObserver(1, basis)
         
         final_state = timeEvolve(ops_sum, init_state, ts, obs, spmat())
         
@@ -282,6 +325,82 @@ using SparseArrays
         new_bits, element = act(Op(:CZ, (1, 2)), bits)
         @test new_bits == bits
         @test element ∈ (1, -1)
+        
+        # Test act_seq - applying multiple operators
+        ops_seq = [Op(:X, 1), Op(:X, 1)]  # Apply X twice (identity)
+        bits_input = 0x00005
+        new_bits_seq, elem_seq = act_seq(1.0, ops_seq, bits_input)
+        @test new_bits_seq == bits_input  # X*X = I
+        @test elem_seq == 1
+    end
+
+    @testset "Operator Application and Expectation Values" begin
+        set_systype(:Spin)
+        
+        # Create a simple Hamiltonian and initial state
+        basis = SpinBasis(2)
+        init_state = ProductState(basis, 0x00000)  # |00⟩ state
+        
+        # Test apply function
+        op_x1 = [Op(:X, 1)]
+        new_state = apply(op_x1, init_state)
+        @test norm(new_state) ≈ 1.0
+        
+        # Test apply! function (in-place)
+        test_state = ProductState(basis, 0x00000)
+        apply!(op_x1, test_state)
+        @test norm(test_state) ≈ 1.0
+        
+        # Test expected value with OpSum (energy)
+        ops_sum = OpSum(ComplexF64)
+        ops_sum += 1.0, :Z, 1, :Z, 2
+        ops_sum += 0.5, :X, 1
+        energy = expected(ops_sum, init_state)
+        @test isa(energy, Real)
+        
+        # Test expected value with operator list
+        ops_list = [Op(:Z, 1)]
+        exp_val = expected(ops_list, init_state)
+        @test isa(exp_val, Real)
+        
+        # Test dot product with operators: ⟨ψ|O|ψ⟩
+        bra_state = ProductState(basis, 0x00000)
+        ket_state = ProductState(basis, 0x00001)
+        
+        # ⟨ψ₁|O|ψ₂⟩ with OpSum
+        dot_prod_opsum = dot(bra_state, ops_sum, ket_state)
+        @test isa(dot_prod_opsum, ComplexF64)
+    end
+    
+    @testset "Entanglement Entropy and Reduced Density Matrix" begin
+        set_systype(:Spin)
+        
+        # Create a basis and a state
+        basis = SpinBasis(4)
+        
+        # Create a superposition state that has entanglement
+        state_vec = zeros(ComplexF64, length(basis.bitsvec))
+        state_vec[1] = 1/sqrt(2)  # |0000⟩
+        state_vec[end] = 1/sqrt(2)  # |1111⟩
+        state = QState(basis, state_vec)
+        
+        # Test entanglement entropy
+        S = ent_entropy(state)
+        @test S > 0  # Should have entanglement for this state
+        @test S ≤ log(2) * 2  # Upper bound for bipartition of 4-site system
+        
+        # Test with different bipartition
+        S_cut3 = ent_entropy(state, 3)
+        @test isa(S_cut3, Float64)
+        
+        # Test reduced density matrix
+        rho_A = reduced_density_matrix(state; subsys='A')
+        @test size(rho_A) == (4, 4)
+        @test ishermitian(rho_A)
+        
+        rho_B = reduced_density_matrix(state; subsys='B')
+        @test size(rho_B) == (4, 4)
+        @test ishermitian(rho_B)
     end
 
     @testset "State Index Lookup" begin
@@ -289,17 +408,20 @@ using SparseArrays
         
         # Test findindex for fixed number SpinBasis
         basis = SpinBasis(4; num=2)
-        idx = findindex(basis, 0x00003)
+        idx, dist = findindex(basis, 0x00003)
         @test idx == 1
+        @test dist == 0
         
         # Test with invalid state (wrong particle number)
-        idx_invalid = findindex(basis, 0x00001)
+        idx_invalid, dist_invalid = findindex(basis, 0x00001)
         @test idx_invalid == basis.dim + 1
+        @test dist_invalid == 0
         
         # Test findindex for Full dimension SpinBasis
         basis_full = SpinBasis(3)
-        idx_full = findindex(basis_full, 0x00005)
+        idx_full, dist_full = findindex(basis_full, 0x00005)
         @test idx_full == 0x00005 + 1
+        @test dist_full == 0
     end
 
 end

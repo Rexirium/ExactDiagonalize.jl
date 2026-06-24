@@ -65,7 +65,7 @@ function find_repr(bits::UInt32, len::Int, a::Int)
     return resbits, dist
 end
 
-function splitbasis(bits::UInt32, shift::Int)::Tuple{UInt32, UInt32}
+function splitbasis(bits::UInt32, shift::Unsigned)::Tuple{UInt32, UInt32}
     # Split the integer `bits` into two parts at bit position `b`.
     # Returns a tuple (right, left), where `right` contains the lower `b` bits and `left` contains the remaining higher bits.
     shift >= 0x00000 || return 0x00000, bits
@@ -74,7 +74,7 @@ function splitbasis(bits::UInt32, shift::Int)::Tuple{UInt32, UInt32}
     return right, left
 end
 
-function splitbasis(bitsvec::Vector{UInt32}, shift::Int)
+function splitbasis(bitsvec::AbstractVector{UInt32}, shift::Unsigned)
     mask = (0x00001 << shift) - 0x00001
     lefts = bitsvec .>> shift
     rights = bitsvec .& mask

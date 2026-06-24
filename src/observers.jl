@@ -6,7 +6,8 @@ mutable struct OperatorObserver{T <: Number} <: AbstractObserver
     data::Vector{Float64}
 
     OperatorObserver(os::Tuple, basis::AbstractBasis) = new{typeof(os[1])}(
-        matrixform(os[1], os2ops(os, get_optype(_systype[])), basis), Vector{Float64}()
+        matrixform(os2ops(os, get_optype(_systype[])), basis, os[1]), 
+        Vector{Float64}()
     )
 end
 
