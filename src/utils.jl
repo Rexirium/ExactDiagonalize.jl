@@ -40,10 +40,29 @@ function flip(bits::UInt32, pos::Unsigned, b::Bool)::UInt32
 end
 
 function cshift(bits::UInt32, len::Int, shift::Int=1)::UInt32
-    # Circularly shift the bits in `bits` to the left by `shift` positions, within a total length of `len` bits.
-    shift_mod = mod(shift, len)
+    # Circularly shift the bits in `bits` to the right by `shift` positions, within a total length of `len` bits.
+    shift = mod(shift, len)
     mask = typemax(UInt32) >> (32 - len)
-    return ((bits << shift_mod) | (bits >> (len - shift_mod))) & mask
+    return ((bits >> shift) | (bits << (len - shift))) & mask
+end
+
+function find_repr(bits::UInt32, len::Int, a::Int)
+    resbits = bits
+    tmpbits = bits
+
+    bs64 = (UInt64(bits) << len) | bits
+    mask = typemax(UInt32) >> (32 - len)
+
+    dist = 0
+    for d in a : a : len - a
+        tmpbits = UInt32(bs64 >> d) & mask
+
+        if tmpbits < resbits
+            resbits = tmpbits
+            dist = d
+        end
+    end
+    return resbits, dist
 end
 
 function splitbasis(bits::UInt32, shift::Int)::Tuple{UInt32, UInt32}
@@ -70,14 +89,15 @@ function numbitbasis(len::Int, num::Int)::Vector{UInt32}
     num > len && error("more ones than total bits!")
     num == 0 && return UInt32[0x00000]
 
-    basis = UInt32[]
-    sizehint!(basis, binomial(len, num))
+    basis = Vector{UInt32}(undef, binomial(len, num))
+    idx = 0
 
     maxind = (0x00001 << len) - 0x00001
     ind = (0x00001 << num) - 0x00001
 
     while ind <= maxind
-        push!(basis, ind)
+        idx += 1
+        basis[idx] = ind
 
         #Gosper generating engine
         u = ind & (-ind)
@@ -96,36 +116,17 @@ function numbitbasis(len::Int, nums::Vector{Int})::Vector{UInt32}
     """
     total_dim = sum(n -> binomial(len, n), nums; init=0)
 
-    basis = Vector{UInt32}(undef, total_dim)
-    idx = 1
+    total_basis = UInt32[]
+    sizehint!(total_basis, total_dim)
 
     # Gosper engine for every particle number `num`
-    @inbounds for num in nums
-        num > len && error("more ones than total bits!")
-        if num == 0
-            basis[idx] = 0x00000
-            idx += 1
-            continue
-        end
-
-        maxind = (0x00001 << len) - 0x00001
-        ind = (0x00001 << num) - 0x00001
-
-        while ind <= maxind
-            basis[idx] = ind
-            idx += 1
-            
-            # Gosper generating engine
-            u = ind & (-ind)
-            v = ind + u
-            next_ind = v + ((v ⊻ ind) >> 0x02) ÷ u 
-            next_ind > maxind && break
-            ind = next_ind
-        end
+    for num in nums
+        basis = numbitbasis(len, num)
+        append!(total_basis, basis)
     end
 
-    sort!(basis) # global ordered to use biparte search
-    return basis
+    sort!(total_basis) # globally ordered to use biparte search
+    return total_basis
 end
 
 function momentbitbasis(len::Int, kint::Int, a::Int=1)
@@ -170,14 +171,14 @@ end
 
 function num_moment_bitbasis(len::Int, num::Int, kint::Int, a::Int=1)
     basis = UInt32[]
-    orbit_sizes = UInt32[]
+    orbsizes = UInt32[]
 
     if num == 0
         if (kint * 1) % len == 0
             push!(basis, 0x00000)
-            push!(orbit_sizes, 0x00001)
+            push!(orbsizes, 0x00001)
         end
-        return basis, orbit_sizes
+        return basis, orbsizes
     end
 
     n = len ÷ a
@@ -208,13 +209,12 @@ function num_moment_bitbasis(len::Int, num::Int, kint::Int, a::Int=1)
                 break
             end
         end
-        
         # if ind is representative, check the momentum selection rule.
         if is_rep
             # CAUTION: rotating `p` blocks is translating `p*a` sites
             if (kint * p * a) % len == 0
                 push!(basis, ind)
-                push!(orbit_sizes, p % UInt32)
+                push!(orbsizes, p % UInt32)
             end
         end
         
@@ -228,5 +228,19 @@ function num_moment_bitbasis(len::Int, num::Int, kint::Int, a::Int=1)
         ind = next_ind
     end
     
-    return basis, orbit_sizes
+    return basis, orbsizes
+end
+
+function num_moment_bitbasis(len::Int, nums::Vector{Int}, kint::Int, a::Int)
+    total_basis = UInt32[]
+    total_orbsizes = UInt32[]
+
+    for num in nums
+        basis, orbsizes = num_moment_bitbasis(len, num, kint, a)
+        append!(total_basis, basis)
+        append!(total_orbsizes, orbsizes)
+    end
+
+    idx = sortperm(total_basis)
+    return total_basis[idx], total_orbsizes[idx]
 end

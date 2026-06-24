@@ -148,23 +148,26 @@ function act_seq(coeff::T, ops::Vector{<:AbstractOp}, bits::UInt32) where T <: N
 end
 
 # Build operator matrix in given basis
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where T <: Number
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Nothing}; 
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     ELT = promote_type(T, dtype)
     opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = act_seq(coeff, ops, bits)
-        i = findindex(basis, newbits)
-        (i > dim || iszero(element)) && continue
+        iszero(element) && continue
+
+        i, _ = findindex(basis, newbits)
+        (i > dim) && continue
+
         opmat[i, j] += element
     end
     return opmat
 end
 
-function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{Nothing, Int}; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number}
+function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Int}; 
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     
     if basis.kint == 0 || basis.kint == basis.lsize / 2
@@ -178,8 +181,10 @@ function matrixform(coeff::T, ops::Vector{<:AbstractOp}, basis::AbstractBasis{No
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = act_seq(coeff, ops, bits)
+        iszero(element) && continue
+
         i, d = findindex(basis, newbits)
-        (i > dim || iszero(element)) && continue
+        (i > dim) && continue
 
         norm_factor = sqrt(orbits[j] / orbits[i])
         opmat[i, j] += element * cis(-ks * d) * norm_factor
@@ -220,8 +225,8 @@ Construct the hamiltonian matrix from OpSum type with assigned basis.
 Return either dense or sparse matrix controled by sparsed, default to be dense
 because `eigen` in LinearAlgebra does not support sparse matrix.
 """
-function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis; 
-    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number}
+function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{N, Nothing}; 
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
@@ -232,16 +237,19 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis;
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = act_seq(covec[s], opvec[s], bits)
-            i = findindex(basis, newbits)
-            (i > dim || iszero(element)) && continue
+            iszero(element) && continue
+
+            i, _ = findindex(basis, newbits)
+            (i > dim) && continue
+
             hmat[i, j] += element
         end
     end
     return hmat
 end
 
-function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{Nothing, Int}; 
-    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where T <: Number
+function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{N, Int}; 
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
     dim = basis.dim
     opnum = length(opsum.covec)
     covec = opsum.covec
@@ -258,8 +266,10 @@ function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{Nothing, Int};
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         for s in 1:opnum
             newbits, element = act_seq(covec[s], opvec[s], bits)
+            iszero(element) && continue
+
             i, d = findindex(basis, newbits)
-            (i > dim || iszero(element)) && continue
+            (i > dim) && continue
             
             norm_factor = sqrt(orbits[j] / orbits[i])
             hmat[i, j] += element * cis(-ks * d) * norm_factor

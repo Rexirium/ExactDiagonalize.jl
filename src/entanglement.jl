@@ -49,4 +49,5 @@ function reduced_density_matrix(basis::AbstractBasis, psi::Vector, b::Int=basis.
     return mat * mat'
 end
 
-reduced_density_matrix(psi::QState, b::Int=basis.lsize ÷ 2; subsys::Char='A') = reduced_density_matrix(psi.basis, psi.vector, b; subsys=subsys)
+reduced_density_matrix(psi::QState, b::Int=basis.lsize ÷ 2; subsys::Char='A') = 
+    reduced_density_matrix(psi.basis, psi.vector, b; subsys=subsys)

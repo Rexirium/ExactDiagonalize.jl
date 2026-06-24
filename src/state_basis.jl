@@ -8,6 +8,8 @@
 # Abstract base types for basis and state representations
 const NInt = Union{Int, Nothing}
 const NVInt = Union{Int, Vector{Int}, Nothing}
+const VInt = Union{Int, Vector{Int}}
+
 abstract type AbstractBasis{N <: NVInt, K <: NInt} end
 
 # ============================================================================
@@ -63,41 +65,28 @@ Base.:(==)(b1::SpinBasis, b2::SpinBasis) =
     (b1.lsize == b2.lsize) && (b1.a == b2.a) && (b1.num == b2.num) && (b1.kint == b2.kint)
 
 # find index of a product state in general basis
-function findindex(basis::SpinBasis{Nothing, Nothing}, bits::UInt32)::Int
-    return Int(bits) + 1
+function findindex(basis::SpinBasis{Nothing, Nothing}, bits::UInt32)
+    return Int(bits) + 1, 0
 end
 
 # find index of a product state in number conserving basis
-function findindex(basis::SpinBasis{Union{Int, Vector{Int}}, Nothing}, bits::UInt32)::Int
-    count_ones(bits) in basis.num || return basis.dim + 1  # if number of ones doesn't match, return out of bounds index
-    return searchsortedfirst(basis.bitsvec, bits)
+function findindex(basis::SpinBasis{N, Nothing}, bits::UInt32) where N <: VInt
+    count_ones(bits) in basis.num || return basis.dim + 1, 0  # if number of ones doesn't match, return out of bounds index
+    return searchsortedfirst(basis.bitsvec, bits), 0
 end
 
 function findindex(basis::SpinBasis{Nothing, Int}, bits::UInt32)
     # For momentum sector basis, we need to check both the bitstring and its momentum label
-    lsize = basis.lsize
-    a = basis.a
-    resbits = bits
-    tmpbits = bits
-    bs64 = (UInt64(bits) << lsize) | bits
-    mask = typemax(UInt32) >> (32 - lsize)
-
-    dist = 0
-    for d in a : a : lsize - a
-        tmpbits = ((bs64 >> (lsize - d)) % UInt32) & mask
-
-        is_less = tmpbits < resbits
-        resbits = ifelse(is_less, tmpbits, resbits)
-        dist = ifelse(is_less, d, dist)
-    end
+    resbits, dist = find_repr(bits, basis.lsize, basis.a)
     return searchsortedfirst(basis.bitsvec, resbits), dist
 end
 
 # find index of a product state in other basis
-function findindex(basis::SpinBasis{Int, Int}, bits::UInt32)
-    count_ones(bits) == basis.num || return basis.dim + 1
+function findindex(basis::SpinBasis{N, Int}, bits::UInt32) where N <: VInt
+    count_ones(bits) in basis.num || return basis.dim + 1, 0
 
-    return searchsortedfirst(basis.bitsvec, bits)
+    resbits, dist = find_repr(bits, basis.len, basis.a)
+    return searchsortedfirst(basis.bitsvec, resbits), dist
 end
 
 function Base.print(basis::SpinBasis; bitstyle::String="bin")
