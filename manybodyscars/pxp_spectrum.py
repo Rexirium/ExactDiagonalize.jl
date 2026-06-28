@@ -6,16 +6,17 @@ import matplotlib.pyplot as plt
 
 L = 16
 b = L // 2
-g = 0.2
+g = - 0.2
 
-basis = pxp_basis_1d(L)
+basis = pxp_basis_1d(L, a=2, kblock=0)
+basis_full = pxp_basis_1d(L)
 
 h_list = [[1.0, i] for i in range(L)]
-hg_list = [[g*(-1)**i, i] for i in range(L)]
-hn_list = [[g*(-1)**i, i, (i + 1) % L] for i in range(L)]
+hg_list = [[g * (-1)**i, i] for i in range(L)]
+hn_list = [[g * (-1)**i, i, (i + 1) % L] for i in range(L)]
 hnn_list = [[g, i, (i + 2) % L] for i in range(L)]
 
-static = [["x", h_list], ["zz", hn_list]] #["xx", hn_list], ["yy", hn_list], ["zz", hn_list]]
+static = [["x", h_list], ["z", hg_list]]
 
 no_checks = dict(check_symm=False, check_pcon=False, check_herm=False)
 H_pxp = hamiltonian(static, [], basis=basis, dtype=np.float64, **no_checks)
@@ -31,12 +32,11 @@ Z2state[Z2idx] = 1.0
 overlaps = np.abs(np.matvec(U.T, Z2state)) ** 2
 
 marksizes = [12 if overlaps[n] > 0.01 else 5 for n in range(basis.Ns)]
-# entropies = basis.ent_entropy(U, density=False, enforce_pure=True)['Sent_A']
 
 entropies = np.zeros(basis.Ns)
-
 for n in range(basis.Ns):
-    entropies[n] = basis.my_ent_entropy(U[:, n])
+    full_state = basis.pxp_project_from(U[:, n], basis_full, sparse=False)
+    entropies[n] = basis_full.my_ent_entropy(full_state)
 
 #mask = overlaps > 0
 
@@ -53,13 +53,12 @@ plt.rcParams.update({
 
 fig, ax = plt.subplots()
 
-ax.scatter(E, entropies, c=overlaps, cmap='plasma', s=marksizes)
+ax.scatter(E, overlaps, c=entropies, cmap='plasma', s=marksizes)
 ax.set(
     title=rf"$L={L}, g={g}$ add Z_2 zz term", 
     xlabel=r"$E_n$", ylabel=r"$S(L/2)$", 
-    xlim=(-8, 8)
 )
-#ax.set_yscale("log")
-#ax.set_ylim(1e-5, 10.0)
-#plt.show()
-plt.savefig(f"manybodyscars/pxp_constrained_zz2_L={L}_g={g}.png")
+ax.set_yscale("log")
+ax.set_ylim(1e-10, 2.0)
+plt.show()
+#plt.savefig(f"manybodyscars/pxp_constrained_zz2_L={L}_g={g}.png")

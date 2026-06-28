@@ -1,4 +1,5 @@
 from functools import lru_cache
+from math import gcd
 from quspin.basis.user import user_basis  # Hilbert space user basis
 from quspin.basis.user import (
     pre_check_state_sig_32,
@@ -8,6 +9,7 @@ from quspin.basis.user import (
 from numba import carray, cfunc  # numba helper functions
 from numba import uint32, int32  # numba data types
 import numpy as np
+import scipy.sparse as spp
 from utils import my_ent_entropy
 
 #
@@ -108,6 +110,9 @@ def parity(x, N, sign_ptr, args):
     return out
 
 def pxp_basis_1d(N:int, a:int=1, kblock=None, pblock=None):
+    if not isinstance(a, (int, np.integer)) or a <= 0:
+        raise ValueError("a must be a positive integer")
+
     op_args = np.array([], dtype=np.uint32)
     T_args = np.array([a, (1 << N) - 1], dtype=np.uint32)
     P_args = np.array([N - 1], dtype=np.uint32)
@@ -117,16 +122,25 @@ def pxp_basis_1d(N:int, a:int=1, kblock=None, pblock=None):
     est_size = int(1.618 ** N)
     # 1. 挂载平移对称性 (kblock)
     if kblock is not None:
-        if not (0 <= kblock < N):
-            raise ValueError(f"kblock must be an integer between 0 and {N-1}")
+        translation_period = N // gcd(N, a)
+        if not (0 <= kblock < translation_period):
+            raise ValueError(
+                "kblock must be an integer between 0 and "
+                f"{translation_period - 1} for N={N}, a={a}"
+            )
         
         T_args = np.array([a, (1 << N) - 1], dtype=np.uint32)
         
-        # 传入的格式: (映射函数, 周期, 量子数/扇区, 参数数组)
-        # 本征值为 exp(-i * 2pi * kblock / N)
-        maps["T_block"] = (translation, N, kblock, T_args)
+        # 平移 a 个格点的本征值为
+        # exp(-i * 2pi * kblock / translation_period)。
+        maps["T_block"] = (
+            translation,
+            translation_period,
+            kblock,
+            T_args,
+        )
         arrays_to_keep.append(T_args)
-        est_size = est_size * a // N + N
+        est_size = est_size // translation_period + translation_period
 
     # 2. 挂载宇称对称性 (pblock)
     if pblock is not None:
@@ -162,6 +176,81 @@ def pxp_basis_1d(N:int, a:int=1, kblock=None, pblock=None):
     
     return basis
 
+
+def pxp_project_from(self, v0, full_pxp_basis, sparse=True):
+    """Lift states to the symmetry-free, PXP-constrained basis.
+
+    This is the PXP analogue of QuSpin's ``basis.project_from()``.  The
+    difference is that the output rows contain only blockade-compatible
+    configurations, in the same (descending-integer) order as
+    ``pxp_basis_1d(self.N).states``, instead of all ``2**N`` spin states.
+
+    Parameters
+    ----------
+    v0 : array_like or scipy.sparse matrix
+        A state vector of shape ``(self.Ns,)`` or several state vectors
+        stored column-wise with shape ``(self.Ns, nvec)``.
+    full_pxp_basis : user_basis
+        A symmetry-free PXP basis constructed beforehand with
+        ``pxp_basis_1d(self.N)``. Its state ordering determines the rows of
+        the returned vector or matrix.
+    sparse : bool, optional
+        Return a CSC sparse matrix when true.  As in QuSpin, a sparse
+        single-vector result has shape ``(Ns_pxp, 1)``.
+
+    Returns
+    -------
+    numpy.ndarray or scipy.sparse.csc_matrix
+        State(s) expressed in the symmetry-free PXP-constrained basis.
+    """
+    if full_pxp_basis.N != self.N:
+        raise ValueError(
+            "full_pxp_basis and the symmetry-reduced basis must have "
+            "the same system size"
+        )
+    if getattr(full_pxp_basis, "blocks", {}):
+        raise ValueError(
+            "full_pxp_basis must not contain spatial symmetry blocks; "
+            "construct it with pxp_basis_1d(N)"
+        )
+
+    vectors = v0 if spp.issparse(v0) else np.asarray(v0)
+    if vectors.ndim not in (1, 2) or vectors.shape[0] != self.Ns:
+        raise ValueError(
+            f"v0 must have shape ({self.Ns},) or ({self.Ns}, nvec)"
+        )
+    was_vector = vectors.ndim == 1
+
+    # Cache the symmetry expansion because orbit representatives and their
+    # amplitudes depend only on the two bases, not on the projected vectors.
+    cache = getattr(self, "_pxp_projection_cache", {})
+    cached = cache.get(id(full_pxp_basis))
+    if cached is None or cached[0] is not full_pxp_basis:
+        representatives = full_pxp_basis.states.copy()
+        amplitudes = np.real_if_close(
+            self.get_amp(representatives, mode="full_basis")
+        )
+        rows = np.flatnonzero(amplitudes)
+        columns = self.Ns - 1 - np.searchsorted(
+            self.states[::-1], representatives[rows]
+        )
+        projector = spp.csc_matrix(
+            (amplitudes[rows], (rows, columns)),
+            shape=(full_pxp_basis.Ns, self.Ns),
+        )
+        cached = (full_pxp_basis, projector)
+        cache[id(full_pxp_basis)] = cached
+        self._pxp_projection_cache = cache
+
+    _, projector = cached
+
+    if sparse:
+        vectors = vectors.reshape(self.Ns, 1) if was_vector else vectors
+        return (projector @ spp.csc_matrix(vectors)).tocsc()
+
+    result = projector @ vectors
+    return result.toarray() if spp.issparse(result) else np.asarray(result)
+
 @lru_cache(maxsize=None)
 def fibonacci(n:int):
     if n <= 0:
@@ -171,16 +260,20 @@ def fibonacci(n:int):
     return fibonacci(n - 2) + fibonacci(n - 1)
 
 user_basis.my_ent_entropy = my_ent_entropy
+user_basis.pxp_project_from = pxp_project_from
 ##############################################################################
 ##############################################################################
 
 if __name__ == '__main__':
-    N = 18
-    basis = pxp_basis_1d(N)
-    print(basis)
-    Ns_size = int(1.2 * 1.618 ** N)
-    print(f"estimated size without symmetry {int(Ns_size)}")
-    Ns_size = Ns_size // N + N
-    Ns_size = Ns_size // 2 + 2
-    Ns_size = int(1.2 * Ns_size)
-    print(f"estimated size with symmetry {Ns_size}")
+    N = 10
+    basis = pxp_basis_1d(N, kblock=0)
+    print(basis.Ns)
+    
+    psi = np.zeros(basis.Ns)
+    Z2idx = basis.index("10" * (N // 2))
+    psi[Z2idx] = 1.0
+    
+    full_basis = pxp_basis_1d(N)
+    psi_full = basis.pxp_project_from(psi, full_basis, sparse=False)
+    
+    print(len(psi_full) == full_basis.Ns)
