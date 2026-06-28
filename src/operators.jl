@@ -147,65 +147,88 @@ function act_seq(coeff::T, ops::Vector{<:AbstractOp}, bits::UInt32) where T <: N
     return newbits, element
 end
 
+# Multiple dispatch the acting on different basis
+@inline function basis_element(basis::AbstractBasis{N, Nothing}, newbits, j) where {N <: NVInt}
+    i, _ = findindex(basis, newbits)
+    return i, 1.0
+end
+# basis with spatial translation invariance
+@inline function basis_element(basis::AbstractBasis{N, Int}, newbits, j) where {N <: NVInt}
+    i, d = findindex(basis, newbits)
+    i > basis.dim && return i, 0.0im
+
+    k = 2π * basis.kint / basis.lsize
+    factor = cis(-k * d) * sqrt(basis.orbsize[j] / basis.orbsize[i])
+
+    return i, factor
+end
+
+# Determine the element type of the matrix form of oerators
+operator_eltype(::AbstractBasis{N, Nothing}, CT::Type{<:Number}, DT::Type{<:Number}) where {N} =
+    promote_type(CT, DT, Float64)
+
+operator_eltype(basis::AbstractBasis{N, Int}, CT::Type{<:Number}, DT::Type{<:Number}) where {N} =
+    basis.kint == 0 || abs(basis.kint) == basis.lsize / 2 ? promote_type(CT, DT, Float64) : ComplexF64
+
 # Build operator matrix in given basis
-function matrixform(ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Nothing}, coeff::T=1; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
+function matrixform(ops::Vector{<:AbstractOp}, basis::AbstractBasis, coeff::Number=1; 
+    sparsed::Bool=true, dtype::Type{<:Number}=Float64)
     dim = basis.dim
-    ELT = promote_type(T, dtype)
+    ELT = operator_eltype(basis, typeof(coeff), dtype)
     opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = act_seq(coeff, ops, bits)
         iszero(element) && continue
 
-        i, _ = findindex(basis, newbits)
+        i, factor = basis_element(basis, newbits, j)
         (i > dim) && continue
 
-        opmat[i, j] += element
+        opmat[i, j] += factor * element
     end
     return opmat
 end
 
-function matrixform(ops::Vector{<:AbstractOp}, basis::AbstractBasis{N, Int}, coeff::T=1; 
-    sparsed::Bool=true, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
+
+# Matrix-free action of operator(s) on a state vector
+function _apply!(output::AbstractVector, ops::Vector{<:AbstractOp},
+    basis::AbstractBasis, input::AbstractVector, coeff::Number)
+    fill!(output, zero(eltype(output)))
     dim = basis.dim
-    
-    if basis.kint == 0 || basis.kint == basis.lsize / 2
-        ELT = promote_type(T, dtype)
-    else
-        ELT = ComplexF64
-    end
-    opmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
-    ks = 2π * basis.kint / basis.lsize
-    orbits = basis.orbsize
 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
         newbits, element = act_seq(coeff, ops, bits)
         iszero(element) && continue
 
-        i, d = findindex(basis, newbits)
+        i, factor = basis_element(basis, newbits, j)
         (i > dim) && continue
 
-        norm_factor = sqrt(orbits[j] / orbits[i])
-        opmat[i, j] += element * cis(-ks * d) * norm_factor
+        output[i] += factor * element * input[j]
     end
-    return opmat
 end
-
 
 # Apply operator(s) to a state and return new state
-function apply(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(ops, psi.basis, coeff)
-    vector = opmat * psi.vector
-    return QState(psi.basis, vector)
+function apply(ops::Vector{<:AbstractOp}, psi::QState{T}, coeff::Number=1.0) where T <: Number
+    output = zeros(T, psi.basis.dim)
+    _apply!(output, ops, psi.basis, psi.vector, coeff)
+    return QState{T}(psi.basis, output)
+end
+ 
+function apply(ops::Vector{<:AbstractOp}, basis::AbstractBasis, psi::AbstractVector, coeff::Number=1.0)
+    psi_new = similar(psi)
+    _apply!(psi_new, ops, basis, psi, coeff)
+    return psi_new
 end
 
 # In-place apply operator(s) to a state
 function apply!(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(ops, psi.basis, coeff)
-    vector = similar(psi.vector)
-    mul!(vector, opmat, psi.vector)
-    copyto!(psi.vector, vector)
+    input = copy(psi.vector)
+    _apply!(psi.vector, ops, psi.basis, input, coeff)
+end
+
+function apply!(ops::Vector{<:AbstractOp}, basis::AbstractBasis, psi::AbstractVector, coeff::Number=1.0)
+    input = copy(psi)
+    _apply(psi, ops, basis, input, coeff)
 end
 
 # Compute expectation value of operator(s) in a state
@@ -227,70 +250,71 @@ Construct the hamiltonian matrix from OpSum type with assigned basis.
 Return either dense or sparse matrix controled by sparsed, default to be dense
 because `eigen` in LinearAlgebra does not support sparse matrix.
 """
-function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{N, Nothing}; 
-    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
+function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis; 
+    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number}
     dim = basis.dim
-    opnum = length(opsum.covec)
+    
     covec = opsum.covec
     opvec = opsum.opvec
 
-    ELT = promote_type(T, dtype)
+    ELT = operator_eltype(basis, T, dtype)
     hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim) 
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
-        for s in 1:opnum
+        for s in eachindex(opsum.covec)
             newbits, element = act_seq(covec[s], opvec[s], bits)
             iszero(element) && continue
 
-            i, _ = findindex(basis, newbits)
+            i, factor = basis_element(basis, newbits, j)
             (i > dim) && continue
 
-            hmat[i, j] += element
+            hmat[i, j] += factor * element
         end
     end
     return hmat
 end
 
-function makeHamiltonian(opsum::OpSum{T}, basis::AbstractBasis{N, Int}; 
-    sparsed::Bool=false, dtype::Type{<:Number}=Float64) where {T <: Number, N <: NVInt}
+
+# Matrix-free action of an operator sum on a state vector
+function _apply!(output::AbstractVector, opsum::OpSum, basis::AbstractBasis,
+    input::AbstractVector)
+    fill!(output, zero(eltype(output)))
     dim = basis.dim
-    opnum = length(opsum.covec)
     covec = opsum.covec
     opvec = opsum.opvec
-    ks = 2π * basis.kint / basis.lsize
-    orbits = basis.orbsize
 
-    if basis.kint == 0 || basis.kint == basis.lsize / 2
-        ELT = promote_type(T, dtype)
-    else
-        ELT = ComplexF64
-    end
-    hmat = sparsed ? spzeros(ELT, dim, dim) : zeros(ELT, dim, dim)
     @inbounds for (j, bits) in enumerate(basis.bitsvec)
-        for s in 1:opnum
+        for s in eachindex(covec)
             newbits, element = act_seq(covec[s], opvec[s], bits)
             iszero(element) && continue
 
-            i, d = findindex(basis, newbits)
+            i, factor = basis_element(basis, newbits, j)
             (i > dim) && continue
-            
-            norm_factor = sqrt(orbits[j] / orbits[i])
-            hmat[i, j] += element * cis(-ks * d) * norm_factor
+
+            output[i] += factor * element * input[j]
         end
     end
-    return hmat
 end
 
-function apply(opsum::OpSum, psi::QState)
-    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    vector = hmat * psi.vector
-    return QState(psi.basis, vector)
+function apply(opsum::OpSum, psi::QState{T}) where {T <: Number}
+    output = zeros(T, psi.basis.dim)
+    _apply!(output, opsum, psi.basis, psi.vector)
+    return QState{T}(psi.basis, output)
+end
+
+function apply(opsum::OpSum, basis::AbstractBasis, psi::AbstractVector)
+    psi_new = similar(psi)
+    _apply!(psi_new, opsum, basis, psi)
+    return psi_new
 end
 
 function apply!(opsum::OpSum, psi::QState)
-    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    vector = similar(psi.vector)
-    mul!(vector, hmat, psi.vector)
-    copyto!(psi.vector, vector)
+    input = copy(psi.vector)
+    _apply!(psi.vector, opsum, psi.basis, input)
+end
+
+function apply!(opsum::OpSum, basis::AbstractBasis, psi::AbstractVector)
+    input = copy(psi)
+    _apply(psi, opsum, basis, input, coeff)
 end
 
 function expected(opsum::OpSum, psi::QState)

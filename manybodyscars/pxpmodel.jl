@@ -7,7 +7,7 @@ using CairoMakie
 let
     set_systype(:Spin)
     Ls = 12
-    g = - 0.1
+    g = -0.3
 
     basis = SpinBasis(Ls)
 
@@ -61,6 +61,7 @@ let
         color = overlaps, colormap=:plasma, 
         markersize=marksizes
     )
-    save("manybodyscars/pxp_unconstrained_z2_L=$(Ls)_g=$(g).png", fig)
+    fig
+    #save("manybodyscars/pxp_unconstrained_z2_L=$(Ls)_g=$(g).png", fig)
     
 end
