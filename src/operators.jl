@@ -232,17 +232,32 @@ function apply!(ops::Vector{<:AbstractOp}, basis::AbstractBasis, psi::AbstractVe
 end
 
 # Compute expectation value of operator(s) in a state
+function expected(ops::Vector{<:AbstractOp}, basis::AbstractBasis, vector::AbstractVector, coeff::Number=1.0)
+    length(vector) == basis.dim ||
+        throw(DimensionMismatch("state vector and basis have incompatible dimensions"))
+    newvec = similar(vector)
+    _apply!(newvec, ops, basis, vector, coeff)
+    return real(dot(vector, newvec))
+end
+
 function expected(ops::Vector{<:AbstractOp}, psi::QState, coeff::Number=1.0)
-    opmat = matrixform(ops, psi.basis, coeff)
-    v = psi.vector
-    return real(dot(v, opmat, v))
+    return expected(ops, psi.basis, psi.vector, coeff)
 end
 
 # Compute ⟨x|O|y⟩ for two states and operator(s)
+function LinearAlgebra.dot(x::AbstractVector, ops::Vector{<:AbstractOp}, y::AbstractVector, basis::AbstractBasis)
+    length(x) == basis.dim && length(y) == basis.dim ||
+        throw(DimensionMismatch("state vectors and basis have incompatible dimensions"))
+    newvec = similar(y)
+    _apply!(newvec, ops, basis, y, 1.0)
+    return dot(x, newvec)
+end
+
 function LinearAlgebra.dot(x::QState, ops::Vector{<:AbstractOp}, y::QState)
-    length(x.vector) == length(y.vector) || error("wrong dimension of two states!")
-    opmat = matrixform(ops, y.basis)
-    return dot(x.vector, opmat, y.vector)
+    x.basis == y.basis || error("Imcompactible basis!")
+    newvec = similar(y.vector)
+    _apply!(newvec, ops, y.basis, y.vector, 1.0)
+    return dot(x.vector, newvec)
 end
 
 """
@@ -317,12 +332,29 @@ function apply!(opsum::OpSum, basis::AbstractBasis, psi::AbstractVector)
     _apply(psi, opsum, basis, input, coeff)
 end
 
+function expected(opsum::OpSum, basis::AbstractBasis, vector::AbstractVector)
+    length(vector) == basis.dim ||
+        throw(DimensionMismatch("state vector and basis have incompatible dimensions"))
+    newvec = similar(vector)
+    _apply!(newvec, opsum, basis, vector)
+    return real(dot(vector, newvec))
+end
+
 function expected(opsum::OpSum, psi::QState)
-    hmat = makeHamiltonian(opsum, psi.basis; sparsed=true)
-    return real(dot(psi.vector, hmat, psi.vector))
+    return expected(opsum, psi.basis, psi.vector)
+end
+
+function LinearAlgebra.dot(x::AbstractVector, opsum::OpSum, y::AbstractVector, basis::AbstractBasis)
+    length(x) == basis.dim && length(y) == basis.dim ||
+        throw(DimensionMismatch("state vectors and basis have incompatible dimensions"))
+    newvec = similar(y)
+    _apply!(newvec, opsum, basis, y)
+    return dot(x, newvec)
 end
 
 function LinearAlgebra.dot(x::QState, opsum::OpSum, y::QState)
-    hmat = makeHamiltonian(opsum, y.basis; sparsed=true)
-    return dot(x.vector, hmat, y.vector)
+    x.basis == y.basis || error("Imcompactible basis for the two states!")
+    newvec = similar(y.vector)
+    _apply!(newvec, opsum, y.basis, y.vector)
+    return dot(x.vector, newvec)
 end
