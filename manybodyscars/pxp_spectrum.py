@@ -44,6 +44,8 @@ overlaps = np.abs(np.matvec(U.conj().T, Z2state)) ** 2
 
 marksizes = [15 if overlaps[n] > 0.01 else 5 for n in range(basis.Ns)]
 
+energy_expected = np.dot(E, overlaps)
+
 full_states = basis.pxp_project_from(U, basis_full, sparse=False)
 entropies = np.empty(basis.Ns)
 for n in range(basis.Ns):
@@ -72,7 +74,7 @@ plt.rcParams.update({
 
 
 fig = plt.figure(figsize=(6, 8),layout="constrained")
-grid = fig.add_gridspec(2, 1, height_ratios=(1, 2))
+grid = fig.add_gridspec(2, 1, height_ratios=(1.3, 2))
 time_grid = grid[1].subgridspec(2, 1, hspace=0)
 time_axes = time_grid.subplots(sharex=True)
 axes = np.concatenate(([fig.add_subplot(grid[0])], time_axes))
@@ -80,6 +82,10 @@ axes = np.concatenate(([fig.add_subplot(grid[0])], time_axes))
 spectrum = axes[0].scatter(
     E, overlaps, c=entropies, cmap='plasma', s=marksizes
 )
+axes[0].axvline(
+    energy_expected, color="black", linestyle="--",
+)
+
 colorbar = fig.colorbar(spectrum, ax=axes[0], location="right", pad=0.02)
 colorbar.ax.tick_params(length=0, labelsize=10)
 
@@ -87,18 +93,18 @@ axes[0].set(
     xlabel=r"$E_n$", ylabel=r"$|\langle \mathbb{Z}_2 |\psi \rangle|^2$", 
 )
 axes[0].set_yscale("log")
-axes[0].set_ylim(1e-10, 2.0)
+axes[0].set_ylim(1e-12, 1.0)
 
 axes[1].plot(ts, zz_correlation_t)
 axes[1].set(
     ylabel=r"$\langle Z_{i}Z_{i+1}\rangle$",
 )
-axes[1].tick_params(axis="x", labelbottom=False)
+axes[1].tick_params(axis="x", labelbottom=False, bottom=False)
 
 axes[2].plot(ts, z2_overlap_t)
 axes[2].set(
     xlabel=r"$t$",
     ylabel=r"$|\langle \mathbb{Z}_2|\psi(t)\rangle|^2$",
 )
-plt.show()
-#plt.savefig(f"manybodyscars/pxp_constrained_zz2_L={L}_g={g}.png")
+
+plt.savefig(f"manybodyscars/pxp_zandzzz_L={L}_g={g}.png")
