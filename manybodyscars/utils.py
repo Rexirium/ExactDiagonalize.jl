@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import scipy.sparse as spp
 from scipy.linalg import svdvals
@@ -22,33 +24,36 @@ def merge_basis_index(bases:list[spin_basis_1d]):
 def my_ent_entropy(self, psi, b=None):
     
     if hasattr(self, "blocks") and len(self.blocks) > 0:
-        raise ValueError(
-            "Alert! Entanglement entropy CANNOT be calculated upon basis with spatial symmetry(kblock/pblock). \n"
-            "Please first use basis.project_from() to lift the state into the full space"
-            "And then use symmetry-free basis to run this function! "
+        warnings.warn(
+            "Use a symmetry-free basis for reliable entanglement entropy.",
+            UserWarning,
+            stacklevel=2,
         )
     
     if b is None:
         b = self.N // 2
-    # 3进制表示特有
-    shift = self.N - b
-    if self.sps == 2:
-        mask = (1 << shift) - 1
-        left_parts = self.states >> shift
-        right_parts = self.states & mask
-    else:
-        pow_sps = np.pow(self.sps, shift)
-        # 1. 向量化计算所有态的左边和右边部分
-        left_parts = self.states // pow_sps
-        right_parts = self.states % pow_sps
-    
-    # 2. 获取去重后的状态，以及每个原始状态在新列表中的索引
-    # l_idx 和 r_idx 的长度与 basis_states 完全一致
-    lstates, l_idx = np.unique(left_parts, return_inverse=True)
-    rstates, r_idx = np.unique(right_parts, return_inverse=True)
-    
-    
-    mat = np.zeros((lstates.size, rstates.size), dtype=psi.dtype)
+
+    cache = getattr(self, "_ent_entropy_cache", {})
+    partition = cache.get(b)
+    if partition is None:
+        shift = self.N - b
+        if self.sps == 2:
+            mask = (1 << shift) - 1
+            left_parts = self.states >> shift
+            right_parts = self.states & mask
+        else:
+            pow_sps = np.pow(self.sps, shift)
+            left_parts = self.states // pow_sps
+            right_parts = self.states % pow_sps
+
+        lstates, l_idx = np.unique(left_parts, return_inverse=True)
+        rstates, r_idx = np.unique(right_parts, return_inverse=True)
+        partition = (l_idx, r_idx, lstates.size, rstates.size)
+        cache[b] = partition
+        self._ent_entropy_cache = cache
+
+    l_idx, r_idx, n_left, n_right = partition
+    mat = np.zeros((n_left, n_right), dtype=psi.dtype)
      # 4. 根据 psi 的类型进行智能映射 (支持 Sparse 和 Dense)
     # ==============================================================
     if spp.issparse(psi):
